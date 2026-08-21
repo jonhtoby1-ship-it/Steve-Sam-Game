@@ -11,7 +11,7 @@
 
   <div class="game-container">
     
-    <!-- Barre Supérieure : Durée et Contrôles du Jeu -->
+    <!-- Configuration -->
     <div class="setup-bar">
       <div>
         <label for="gameDuration" style="font-size: 0.8rem;">Durée :</label>
@@ -29,7 +29,7 @@
       </div>
     </div>
 
-    <!-- Panneau Multijoueur (PeerJS) -->
+    <!-- Multijoueur Réseau -->
     <div class="network-panel">
       <button id="btnCreateRoom" class="net-btn">Créer Salon</button>
       <div class="join-box">
@@ -39,7 +39,7 @@
       <div id="networkStatus" class="net-status">Mode Solo (vs IA)</div>
     </div>
 
-    <!-- Tableau de Score et Chronomètre -->
+    <!-- Tableau d'affichage -->
     <div class="scoreboard">
       <div class="team team-1">
         <span class="team-name">J1</span>
@@ -57,23 +57,30 @@
       </div>
     </div>
 
-    <!-- Terrain de Jeu -->
+    <!-- Canvas -->
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <!-- Zone des Commandes Tactiles (Boutons de Direction + Tir) -->
+    <!-- Contrôles Tactiles Corrigés -->
     <div class="controls-wrapper">
       <div class="player-touch-zone">
         <div class="controls-layout">
           
-          <!-- Croix Directionnelle (Flèches) -->
+          <!-- Croix Directionnelle 3x3 -->
           <div class="d-pad">
-            <button class="t-btn" id="btnUp" style="grid-column: 2; grid-row: 1;">⬆️</button>
-            <button class="t-btn" id="btnLeft" style="grid-column: 1; grid-row: 2;">⬅️</button>
-            <button class="t-btn" id="btnRight" style="grid-column: 3; grid-row: 2;">➡️</button>
-            <button class="t-btn" id="btnDown" style="grid-column: 2; grid-row: 3;">⬇️</button>
+            <div></div>
+            <button class="t-btn" id="btnUp">⬆️</button>
+            <div></div>
+
+            <button class="t-btn" id="btnLeft">⬅️</button>
+            <div></div>
+            <button class="t-btn" id="btnRight">➡️</button>
+
+            <div></div>
+            <button class="t-btn" id="btnDown">⬇️</button>
+            <div></div>
           </div>
 
-          <!-- Bouton d'Action Unique : Tirer -->
+          <!-- Bouton de Tir -->
           <div class="act-btns">
             <button class="t-btn btn-shoot" id="btnShoot">TIRER ⚽</button>
           </div>

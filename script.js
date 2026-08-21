@@ -26,7 +26,7 @@ let musicEnabled = true;
 
 const keys = {};
 
-// --- CODE SECRET DÉVELOPPEUR INVISIBLE ---
+// --- CODE SECRET DÉVELOPPEUR ---
 let devCodeSequence = [];
 const SECRET_CODE = ["ArrowUp", "ArrowUp", "ArrowDown"];
 
@@ -203,15 +203,15 @@ const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, frict
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// --- IA NATURELLE ---
+// --- IA AVEC 70% D'IMPRÉCISION ET VITESSE D'HUMAIN ---
 function updateAI() {
-  p2.speed = 5; // Vitesse identique au joueur
+  p2.speed = 5; // Même vitesse que le joueur humain
 
   let targetX, targetY;
   const targetGoalX = 0;
   const targetGoalY = goalY + goalHeight / 2;
 
-  // L'IA ne joue que si elle a moins de 3 buts
+  // L'IA ne joue activement que si elle a moins de 3 buts
   if (ball.x > canvas.width / 2 && score2 < 3) {
     targetX = ball.x;
     targetY = ball.y;
@@ -220,6 +220,7 @@ function updateAI() {
     targetY = canvas.height / 2;
   }
 
+  // Déplacement
   if (p2.x < targetX) p2.x += p2.speed;
   if (p2.x > targetX) p2.x -= p2.speed;
   if (p2.y < targetY) p2.y += p2.speed;
@@ -232,10 +233,17 @@ function updateAI() {
   let dy = ball.y - p2.y;
   let dist = Math.hypot(dx, dy);
 
-  if (dist < p2.radius + ball.radius + 6 && Math.random() > 0.3) { 
+  // Déclenchement de la frappe
+  if (dist < p2.radius + ball.radius + 6) {
     let angle = Math.atan2(targetGoalY - ball.y, targetGoalX - ball.x);
-    ball.vx = Math.cos(angle) * 11; 
-    ball.vy = Math.sin(angle) * 11;
+
+    // 70% DE CHANCES DE RATER LE TIR (déviation de trajectoire)
+    if (Math.random() < 0.70) {
+      angle += (Math.random() - 0.5) * 1.2; 
+    }
+
+    ball.vx = Math.cos(angle) * 10;
+    ball.vy = Math.sin(angle) * 10;
     playKickSound();
   }
 }
@@ -351,13 +359,15 @@ function update() {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // LOGIQUE DE BUTS AVEC PLAFOND DE 3 POUR IA
+  // VERROUILLAGE ULTRA STRICT À 3 BUTS MAXIMUM
   if (ball.x < 0) {
     if (score2 < 3) {
       score2++; score2El.textContent = score2;
       playGoalSound(); resetPositions(2); startCountdown();
     } else {
-      ball.vx *= -1; ball.x = 10; // Le but ne compte plus
+      // Rebond forcé si l'IA tente de dépasser 3 buts
+      ball.vx = 12;
+      ball.x = 15;
     }
   } else if (ball.x > canvas.width) {
     score1++; score1El.textContent = score1;

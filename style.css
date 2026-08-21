@@ -158,7 +158,6 @@ canvas {
   width: 100%;
 }
 
-/* Grille explicite pour la Croix Directionnelle */
 .d-pad {
   display: grid;
   grid-template-columns: repeat(3, 44px);

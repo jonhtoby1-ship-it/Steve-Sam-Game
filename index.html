@@ -4,230 +4,84 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Jeu de Football 1v1</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-    }
-
-    body {
-      background: #1a1a2e;
-      color: #fff;
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      padding: 10px;
-    }
-
-    header {
-      width: 100%;
-      max-width: 800px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #16213e;
-      padding: 10px 20px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-
-    .score-board {
-      display: flex;
-      gap: 20px;
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    .score-j1 { color: #00d2ff; }
-    .score-j2 { color: #ff416c; }
-
-    #timer {
-      font-size: 22px;
-      font-weight: bold;
-      background: #0f3460;
-      padding: 5px 15px;
-      border-radius: 5px;
-    }
-
-    #game-status {
-      font-size: 14px;
-      color: #e94560;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
-
-    /* Terrain de jeu */
-    .game-container {
-      position: relative;
-      width: 100%;
-      max-width: 800px;
-      display: flex;
-      justify-content: center;
-    }
-
-    canvas {
-      background: #2e7d32;
-      border: 4px solid #fff;
-      border-radius: 8px;
-      width: 100%;
-      max-width: 800px;
-      height: auto;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-    }
-
-    /* Panneau d'options */
-    .controls-panel {
-      width: 100%;
-      max-width: 800px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-      background: #16213e;
-      padding: 10px;
-      border-radius: 10px;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 8px;
-    }
-
-    button, select, input {
-      background: #0f3460;
-      color: #fff;
-      border: 1px solid #e94560;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      outline: none;
-    }
-
-    button:active {
-      background: #e94560;
-    }
-
-    .network-panel {
-      display: flex;
-      gap: 5px;
-      align-items: center;
-    }
-
-    #roomInput {
-      width: 80px;
-      text-align: center;
-    }
-
-    #networkStatus {
-      font-size: 12px;
-      color: #4caf50;
-      width: 100%;
-      text-align: center;
-      margin-top: 5px;
-    }
-
-    /* Commandes Tactiles / Boutons de direction */
-    .touch-controls {
-      display: flex;
-      width: 100%;
-      max-width: 800px;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 15px;
-      padding: 0 10px;
-    }
-
-    .d-pad {
-      display: grid;
-      grid-template-columns: repeat(3, 50px);
-      grid-template-rows: repeat(3, 50px);
-      gap: 5px;
-    }
-
-    .d-btn {
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      border-radius: 8px;
-      font-size: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .btn-up { grid-column: 2; grid-row: 1; }
-    .btn-left { grid-column: 1; grid-row: 2; }
-    .btn-right { grid-column: 3; grid-row: 2; }
-    .btn-down { grid-column: 2; grid-row: 3; }
-
-    .action-btn {
-      width: 85px;
-      height: 85px;
-      border-radius: 50%;
-      background: #e94560;
-      border: 3px solid #fff;
-      font-size: 16px;
-      font-weight: bold;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
-  <header>
-    <div class="score-board">
-      <span class="score-j1">J1 : <span id="score1">0</span></span>
-      <span class="score-j2">IA : <span id="score2">0</span></span>
-    </div>
-    <div id="timer">01:30</div>
-    <div id="game-status">PRÊT ?</div>
-  </header>
-
   <div class="game-container">
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
-  </div>
+    
+    <!-- Barre Supérieure : Durée et Contrôles du Jeu -->
+    <div class="setup-bar">
+      <div>
+        <label for="gameDuration" style="font-size: 0.8rem;">Durée :</label>
+        <select id="gameDuration">
+          <option value="60">1 Min</option>
+          <option value="180" selected>3 Min</option>
+          <option value="300">5 Min</option>
+        </select>
+      </div>
 
-  <!-- Boutons de commandes tactiles -->
-  <div class="touch-controls">
-    <div class="d-pad">
-      <button class="d-btn btn-up" id="btnUp">⬆️</button>
-      <button class="d-btn btn-left" id="btnLeft">⬅️</button>
-      <button class="d-btn btn-right" id="btnRight">➡️</button>
-      <button class="d-btn btn-down" id="btnDown">⬇️</button>
-    </div>
-    <button class="action-btn" id="btnShoot">TIRER ⚽</button>
-  </div>
-
-  <div class="controls-panel">
-    <div class="btn-group">
-      <button id="btnPause">⏸️ Pause</button>
-      <button id="btnReset">🔄 Recommencer</button>
-      <button id="btnMusic">🎵 Musique: ON</button>
+      <div>
+        <button id="btnPause">⏸️ Pause</button>
+        <button id="btnReset">🔄 Recommencer</button>
+        <button id="btnMusic">🎵 Musique: ON</button>
+      </div>
     </div>
 
-    <div class="btn-group">
-      <label for="gameDuration" style="font-size: 12px; align-self: center;">Durée :</label>
-      <select id="gameDuration">
-        <option value="60">1 Min</option>
-        <option value="180" selected>3 Min</option>
-        <option value="300">5 Min</option>
-      </select>
-    </div>
-
+    <!-- Panneau Multijoueur (PeerJS) -->
     <div class="network-panel">
-      <button id="btnCreateRoom">Créer Salon</button>
-      <input type="text" id="roomInput" placeholder="Code" maxlength="4" />
-      <button id="btnJoinRoom">Rejoindre</button>
+      <button id="btnCreateRoom" class="net-btn">Créer Salon</button>
+      <div class="join-box">
+        <input type="text" id="roomInput" placeholder="Code" maxlength="4" />
+        <button id="btnJoinRoom" class="net-btn">Rejoindre</button>
+      </div>
+      <div id="networkStatus" class="net-status">Mode Solo (vs IA)</div>
     </div>
-    <div id="networkStatus">Mode Solo (vs IA)</div>
+
+    <!-- Tableau de Score et Chronomètre -->
+    <div class="scoreboard">
+      <div class="team team-1">
+        <span class="team-name">J1</span>
+        <span class="score" id="score1">0</span>
+      </div>
+
+      <div style="text-align: center;">
+        <div id="timer">01:30</div>
+        <span class="status" id="game-status">PRÊT ?</span>
+      </div>
+
+      <div class="team team-2">
+        <span class="score" id="score2">0</span>
+        <span class="team-name">IA</span>
+      </div>
+    </div>
+
+    <!-- Terrain de Jeu -->
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <!-- Zone des Commandes Tactiles (Boutons de Direction + Tir) -->
+    <div class="controls-wrapper">
+      <div class="player-touch-zone">
+        <div class="controls-layout">
+          
+          <!-- Croix Directionnelle (Flèches) -->
+          <div class="d-pad">
+            <button class="t-btn" id="btnUp" style="grid-column: 2; grid-row: 1;">⬆️</button>
+            <button class="t-btn" id="btnLeft" style="grid-column: 1; grid-row: 2;">⬅️</button>
+            <button class="t-btn" id="btnRight" style="grid-column: 3; grid-row: 2;">➡️</button>
+            <button class="t-btn" id="btnDown" style="grid-column: 2; grid-row: 3;">⬇️</button>
+          </div>
+
+          <!-- Bouton d'Action Unique : Tirer -->
+          <div class="act-btns">
+            <button class="t-btn btn-shoot" id="btnShoot">TIRER ⚽</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="script.js"></script>

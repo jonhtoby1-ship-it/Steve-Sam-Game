@@ -3,43 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Super Match Football 2D</title>
+  <title>Super Football Multijoueur</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <div class="game-container">
+    <!-- Barre de Configuration des Options -->
+    <div class="setup-bar">
+      <!-- OPTION 1 : Taille des équipes sur le terrain -->
+      <label>Format terrain : 
+        <select id="teamFormat">
+          <option value="1">1 vs 1</option>
+          <option value="2" selected>2 vs 2</option>
+          <option value="3">3 vs 3</option>
+          <option value="4">4 vs 4</option>
+        </select>
+      </label>
+
+      <!-- OPTION 2 : Nombre de joueurs humains sur le téléphone -->
+      <label>Humains (sur tel) : 
+        <select id="humanCount">
+          <option value="1">1 Joueur (vs IA)</option>
+          <option value="2">2 Joueurs</option>
+          <option value="3">3 Joueurs</option>
+          <option value="4">4 Joueurs</option>
+        </select>
+      </label>
+
+      <!-- OPTION 3 : Durée du match -->
+      <label>Durée : 
+        <select id="gameDuration">
+          <option value="120">2 Mins</option>
+          <option value="180" selected>3 Mins</option>
+          <option value="240">4 Mins</option>
+          <option value="300">5 Mins</option>
+        </select>
+      </label>
+
+      <button id="btnMusic">🎵 Musique: ON</button>
+    </div>
+
     <header class="scoreboard">
       <div class="team team-1">
-        <span class="team-name">JOUEUR 1</span>
+        <span class="team-name">BLEUS</span>
         <span id="score1" class="score">0</span>
       </div>
       
       <div class="timer-container">
-        <span id="timer">01:30</span>
-        <span id="game-status" class="status">EN COURS</span>
+        <span id="timer">03:00</span>
+        <span id="game-status" class="status">ROUND 1</span>
       </div>
 
       <div class="team team-2">
         <span id="score2" class="score">0</span>
-        <span class="team-name">ADVERSAIRE</span>
+        <span class="team-name">ROUGES</span>
       </div>
     </header>
 
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <!-- Commandes Tactiles pour Tablette & Mobile -->
-    <div class="touch-controls">
-      <div class="d-pad">
-        <div></div>
-        <div class="touch-btn" id="btnUp">⬆️</div>
-        <div></div>
-        <div class="touch-btn" id="btnLeft">⬅️</div>
-        <div></div>
-        <div class="touch-btn" id="btnRight">➡️</div>
-        <div></div>
-        <div class="touch-btn" id="btnDown">⬇️</div>
-        <div></div>
+    <!-- Zone de contrôles tactiles séparés pour les joueurs sur écran -->
+    <div class="controls-wrapper">
+      <div class="player-touch-zone" id="p1-controls">
+        <span class="p-label" style="color: #00d2ff;">J1 (Bleu)</span>
+        <div class="d-pad">
+          <div></div><button class="t-btn" id="p1-up">⬆️</button><div></div>
+          <button class="t-btn" id="p1-left">⬅️</button><div></div><button class="t-btn" id="p1-right">➡️</button>
+          <div></div><button class="t-btn" id="p1-down">⬇️</button><div></div>
+        </div>
+        <div class="act-btns">
+          <button class="t-btn btn-pass" id="p1-pass">PASSE</button>
+          <button class="t-btn btn-shoot" id="p1-shoot">TIR</button>
+        </div>
       </div>
 
       <div class="center-actions">
@@ -47,7 +83,18 @@
         <button id="btnReset">🔄 Recommencer</button>
       </div>
 
-      <div class="touch-btn btn-shoot" id="btnShoot">TIR ⚽</div>
+      <div class="player-touch-zone" id="p2-controls">
+        <span class="p-label" style="color: #ff416c;">J2 (Rouge)</span>
+        <div class="d-pad">
+          <div></div><button class="t-btn" id="p2-up">⬆️</button><div></div>
+          <button class="t-btn" id="p2-left">⬅️</button><div></div><button class="t-btn" id="p2-right">➡️</button>
+          <div></div><button class="t-btn" id="p2-down">⬇️</button><div></div>
+        </div>
+        <div class="act-btns">
+          <button class="t-btn btn-pass" id="p2-pass">PASSE</button>
+          <button class="t-btn btn-shoot" id="p2-shoot">TIR</button>
+        </div>
+      </div>
     </div>
   </div>
 

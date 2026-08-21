@@ -10,7 +10,8 @@ const btnReset = document.getElementById("btnReset");
 
 let score1 = 0;
 let score2 = 0;
-let timeLeft = 90;
+let round = 1;
+let timeLeft = 45; // 45 secondes par round
 let isPaused = false;
 let isGameOver = false;
 let timerInterval = null;
@@ -20,7 +21,6 @@ const keys = {};
 // --- MOTEUR AUDIO (Sons du jeu) ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-// Son d'impact / Tir
 function playKickSound() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
   const osc = audioCtx.createOscillator();
@@ -36,39 +36,31 @@ function playKickSound() {
   osc.stop(audioCtx.currentTime + 0.15);
 }
 
-// Son de But (Cri de foule généré en synthèse)
 function playGoalSound() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  const bufferSize = audioCtx.sampleRate * 1.5; // 1.5 seconde de son
+  const bufferSize = audioCtx.sampleRate * 1.5;
   const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
   const output = buffer.getChannelData(0);
-  
-  // Générer du bruit blanc modulé (Rumeur de stade)
   for (let i = 0; i < bufferSize; i++) {
     output[i] = Math.random() * 2 - 1;
   }
-
   const whiteNoise = audioCtx.createBufferSource();
   whiteNoise.buffer = buffer;
-
   const filter = audioCtx.createBiquadFilter();
   filter.type = 'bandpass';
   filter.frequency.value = 800;
   filter.Q.value = 3;
-
   const gain = audioCtx.createGain();
   gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-  gain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.3); // Monte en puissance
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5); // S'atténue
-
+  gain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.3);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
   whiteNoise.connect(filter);
   filter.connect(gain);
   gain.connect(audioCtx.destination);
-
   whiteNoise.start();
 }
 
-// --- ÉVÉNEMENT TACTILE / CLAVIER ---
+// --- ÉVÉNEMENTS COMMANDES ---
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
@@ -87,13 +79,22 @@ bindTouch("btnLeft", "ArrowLeft");
 bindTouch("btnRight", "ArrowRight");
 bindTouch("btnShoot", "Space");
 
-// Joueur plus rapide, IA plus lente pour équilibrer
 const player1 = { x: 150, y: 250, radius: 20, color: "#00d2ff", speed: 5.5 };
-const ai = { x: 650, y: 250, radius: 20, color: "#ff416c", speed: 2.5 }; // IA ralentie
+
+const ai = { 
+  x: 650, 
+  y: 250, 
+  radius: 20, 
+  color: "#ff416c", 
+  speed: 2.2, 
+  targetY: 250, 
+  errorOffset: 0, 
+  reactionTimer: 0 
+};
+
 const ball = { x: 400, y: 250, radius: 12, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
 
-// Cages de but agrandies (200px au lieu de 160px) pour marquer plus facilement
-const goalHeight = 200;
+const goalHeight = 220;
 const goalY = (canvas.height - goalHeight) / 2;
 
 function startTimer() {
@@ -101,12 +102,26 @@ function startTimer() {
   timerInterval = setInterval(() => {
     if (!isPaused && !isGameOver) {
       timeLeft--;
-      let mins = Math.floor(timeLeft / 60);
       let secs = timeLeft % 60;
-      timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-      if (timeLeft <= 0) endGame();
+      timerEl.textContent = `ROUND ${round} - 00:${secs.toString().padStart(2, '0')}`;
+      
+      if (timeLeft <= 0) {
+        if (round === 1) {
+          startRound2();
+        } else {
+          endGame();
+        }
+      }
     }
   }, 1000);
+}
+
+function startRound2() {
+  round = 2;
+  timeLeft = 45;
+  statusEl.textContent = "ROUND 2";
+  // Au Round 2 : C'est le Joueur 1 (développeur) qui engager la balle !
+  resetPositions(2); 
 }
 
 function endGame() {
@@ -117,48 +132,78 @@ function endGame() {
   else statusEl.textContent = "🤝 ÉGALITÉ !";
 }
 
-function resetPositions() {
-  player1.x = 150; player1.y = canvas.height / 2;
-  ai.x = 650; ai.y = canvas.height / 2;
-  ball.x = canvas.width / 2; ball.y = canvas.height / 2;
-  ball.vx = 0; ball.vy = 0;
+// Réinitialisation des positions avec choix de l'engagiste
+// starter = 1 -> L'adversaire a la balle proche de lui pour engager
+// starter = 2 -> Le Joueur 1 a la balle proche de lui pour engager
+function resetPositions(starter = 1) {
+  player1.x = 150; 
+  player1.y = canvas.height / 2;
+  ai.x = 650; 
+  ai.y = canvas.height / 2;
+  
+  ball.vx = 0; 
+  ball.vy = 0;
+
+  if (starter === 1) {
+    // Engagement Adversaire
+    ball.x = 420; 
+    ball.y = canvas.height / 2;
+  } else {
+    // Engagement Développeur
+    ball.x = 380; 
+    ball.y = canvas.height / 2;
+  }
 }
 
 function resetGame() {
-  score1 = 0; score2 = 0; timeLeft = 90;
+  score1 = 0; score2 = 0; 
+  round = 1;
+  timeLeft = 45;
   isGameOver = false; isPaused = false;
   score1El.textContent = "0"; score2El.textContent = "0";
-  statusEl.textContent = "EN COURS";
-  timerEl.textContent = "01:30";
-  resetPositions();
+  statusEl.textContent = "ROUND 1";
+  timerEl.textContent = "ROUND 1 - 00:45";
+  
+  // Au Round 1 : L'adversaire commence
+  resetPositions(1);
   startTimer();
 }
 
 function update() {
   if (isPaused || isGameOver) return;
 
-  // Déplacements Joueur
+  // Déplacement Joueur
   if ((keys["ArrowUp"] || keys["KeyW"] || keys["KeyZ"]) && player1.y - player1.radius > 0) player1.y -= player1.speed;
   if ((keys["ArrowDown"] || keys["KeyS"]) && player1.y + player1.radius < canvas.height) player1.y += player1.speed;
   if ((keys["ArrowLeft"] || keys["KeyA"] || keys["KeyQ"]) && player1.x - player1.radius > 0) player1.x -= player1.speed;
   if ((keys["ArrowRight"] || keys["KeyD"]) && player1.x + player1.radius < canvas.width) player1.x += player1.speed;
 
-  // Déplacement IA (Modéré)
-  if (ball.x > canvas.width / 3) {
-    if (ai.y < ball.y - 5 && ai.y + ai.radius < canvas.height) ai.y += ai.speed;
-    if (ai.y > ball.y + 5 && ai.y - ai.radius > 0) ai.y -= ai.speed;
-    if (ai.x < ball.x && ai.x < canvas.width - 25) ai.x += ai.speed * 0.7;
-    if (ai.x > ball.x && ai.x > canvas.width / 2 + 50) ai.x -= ai.speed * 0.7;
+  // Comportement IA Humaine
+  ai.reactionTimer++;
+  if (ai.reactionTimer % 20 === 0) { 
+    ai.errorOffset = (Math.random() - 0.5) * 40; 
   }
 
-  // Tir de super puissance
+  ai.targetY = ball.y + ai.errorOffset;
+
+  if (ball.x > canvas.width * 0.4) {
+    if (ai.y < ai.targetY - 10 && ai.y + ai.radius < canvas.height) ai.y += ai.speed;
+    if (ai.y > ai.targetY + 10 && ai.y - ai.radius > 0) ai.y -= ai.speed;
+
+    if (ai.x < ball.x && ai.x < canvas.width - 30) ai.x += ai.speed * 0.7;
+    if (ai.x > ball.x + 30 && ai.x > canvas.width / 2 + 30) ai.x -= ai.speed * 0.7;
+  } else {
+    if (ai.x < 650) ai.x += ai.speed * 0.5;
+  }
+
+  // Tir du Joueur
   if (keys["Space"]) {
     let dx = ball.x - player1.x, dy = ball.y - player1.y, dist = Math.hypot(dx, dy);
     if (dist < player1.radius + ball.radius + 20) {
       let angle = Math.atan2(dy, dx);
       ball.vx = Math.cos(angle) * 16;
       ball.vy = Math.sin(angle) * 16;
-      playKickSound(); // Son du tir
+      playKickSound();
     }
   }
 
@@ -173,15 +218,15 @@ function update() {
 
   pushBall(player1); pushBall(ai);
 
-  // Gestion des buts avec Cris de joie !
+  // Buts & alternance des engagements
   if (ball.x < 0) {
     score2++; score2El.textContent = score2; 
     playGoalSound();
-    resetPositions();
+    resetPositions(2); // Après but adverse, le développeur engage
   } else if (ball.x > canvas.width) {
     score1++; score1El.textContent = score1; 
     playGoalSound();
-    resetPositions();
+    resetPositions(1); // Après but du joueur, l'adversaire engage
   }
 }
 
@@ -203,7 +248,7 @@ function draw() {
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
   ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2); ctx.stroke();
 
-  // Buts (agrandis)
+  // Cages de But
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, goalY, 10, goalHeight); ctx.fillRect(canvas.width - 10, goalY, 10, goalHeight);
 
@@ -215,7 +260,7 @@ function draw() {
   ctx.beginPath(); ctx.arc(ai.x, ai.y, ai.radius, 0, Math.PI * 2);
   ctx.fillStyle = ai.color; ctx.fill(); ctx.stroke();
 
-  // Ballon
+  // Balle
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 }
@@ -226,7 +271,7 @@ btnPause.addEventListener("click", () => {
   if (isGameOver) return;
   isPaused = !isPaused;
   btnPause.textContent = isPaused ? "▶️ Reprendre" : "⏸️ Pause";
-  statusEl.textContent = isPaused ? "PAUSE" : "EN COURS";
+  statusEl.textContent = isPaused ? "PAUSE" : `ROUND ${round}`;
 });
 
 btnReset.addEventListener("click", resetGame);

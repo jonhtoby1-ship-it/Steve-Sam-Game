@@ -22,7 +22,7 @@ const gameDurationSelect = document.getElementById("gameDuration");
 let score1 = 0, score2 = 0, round = 1;
 let totalTime = 180, timeLeft = 90;
 let isPaused = false, isGameOver = false;
-let isCountdown = false, countdownValue = 3; // Gestion du Top Départ
+let isCountdown = false, countdownValue = 3;
 let timerInterval = null, musicInterval = null, countdownInterval = null;
 let musicEnabled = true;
 
@@ -207,7 +207,6 @@ function initMatch() {
     for (let i = 0; i < format; i++) {
       const isHuman = currentHuman <= humanCount;
       const teamColor = team === 1 ? "#00d2ff" : "#ff416c";
-      // Définition des rôles : Le 1er est gardien/défenseur, les autres attaquants
       const role = (i === 0) ? "DEFENDER" : "ATTACKER";
 
       players.push({
@@ -219,9 +218,10 @@ function initMatch() {
         x: 0, y: 0,
         radius: 18,
         color: teamColor,
-        speed: isHuman ? 4.8 : 3.6,
+        speed: isHuman ? 4.8 : 3.4, // Vitesse rééquilibrée
         num: isHuman ? `J${currentHuman}` : `IA${i+1}`,
-        passCooldown: 0
+        passCooldown: 0,
+        reactionDelay: 0
       });
 
       if (isHuman) currentHuman++;
@@ -229,83 +229,80 @@ function initMatch() {
   }
 }
 
-// --- INTELLIGENCE ARTIFICIELLE AVANCÉE (TACTIQUE & PASSES) ---
+// --- INTELLIGENCE ARTIFICIELLE NATURELLE ET NORMALE ---
 function updateAI(p) {
   if (p.passCooldown > 0) p.passCooldown--;
 
+  // Différence de score pour réguler l'IA (si l'IA mène, elle joue plus détendue)
+  const myScore = p.team === 1 ? score1 : score2;
+  const oppScore = p.team === 1 ? score2 : score1;
+  const lead = myScore - oppScore;
+
+  // Calcul du délai de réaction (plus grand si l'IA mène pour éviter qu'elle enchaîne les buts)
+  p.reactionDelay = (p.reactionDelay || 0) + 1;
+  const delayThreshold = lead > 0 ? 15 : 5; // Simule un hésitation naturelle
+
+  if (p.reactionDelay < delayThreshold) return;
+  p.reactionDelay = 0;
+
   const goalTargetX = p.team === 1 ? canvas.width : 0;
-  const ownGoalX = p.team === 1 ? 0 : canvas.width;
   const distToBall = Math.hypot(ball.x - p.x, ball.y - p.y);
 
-  // Recherche du coéquipier le plus proche du ballon (pour ne pas tous se ruer dessus)
-  let closestTeammate = players
-    .filter(other => other.team === p.team)
-    .reduce((prev, curr) => {
-      let dPrev = Math.hypot(ball.x - prev.x, ball.y - prev.y);
-      let dCurr = Math.hypot(ball.x - curr.x, ball.y - curr.y);
-      return dCurr < dPrev ? curr : prev;
-    });
-
-  const isClosest = (closestTeammate.id === p.id);
   let targetX = p.x, targetY = p.y;
 
   if (p.role === "DEFENDER") {
-    // Le défenseur/gardien reste en couverture devant sa cage
-    targetX = p.team === 1 ? 80 : canvas.width - 80;
-    targetY = Math.max(goalY + 20, Math.min(goalY + goalHeight - 20, ball.y));
-    
-    // Si le ballon rentre dangereusement dans la zone, le défenseur intervient
-    if ((p.team === 1 && ball.x < 250) || (p.team === 2 && ball.x > canvas.width - 250)) {
+    targetX = p.team === 1 ? 90 : canvas.width - 90;
+    targetY = Math.max(goalY + 25, Math.min(goalY + goalHeight - 25, ball.y));
+    if ((p.team === 1 && ball.x < 220) || (p.team === 2 && ball.x > canvas.width - 220)) {
       targetX = ball.x;
     }
   } else {
-    // Rôle ATTAQUANT
-    if (isClosest) {
-      // Aller vers le ballon
-      targetX = ball.x;
+    // Si l'IA mène de 2 buts ou +, elle ralentit son attaque
+    if (lead >= 2 && Math.random() < 0.3) {
+      targetX = p.team === 1 ? 300 : canvas.width - 300;
       targetY = ball.y;
     } else {
-      // Se démarquer intelligemment en attaque
-      targetX = p.team === 1 ? ball.x + 120 : ball.x - 120;
-      targetY = ball.y + (p.id % 2 === 0 ? 90 : -90);
+      targetX = ball.x;
+      targetY = ball.y;
     }
   }
 
-  // Déplacement fluide vers la cible
-  let dx = targetX - p.x, dy = targetY - p.y;
+  // Erreur humaine (imprécision dans les déplacements)
+  let errorX = (Math.random() - 0.5) * (lead > 0 ? 30 : 10);
+  let errorY = (Math.random() - 0.5) * (lead > 0 ? 30 : 10);
+
+  let dx = (targetX + errorX) - p.x, dy = (targetY + errorY) - p.y;
   let dist = Math.hypot(dx, dy);
   if (dist > 5) {
     p.x += (dx / dist) * p.speed;
     p.y += (dy / dist) * p.speed;
   }
 
-  // --- PRISE DE DÉCISION (TIR OU PASSE) ---
-  if (distToBall < p.radius + ball.radius + 8) {
-    // 1. TENTATIVE DE PASSE INTELLIGENTE
-    let openTeammate = players.find(other => 
-      other.team === p.team && 
-      other.id !== p.id && 
-      ((p.team === 1 && other.x > p.x) || (p.team === 2 && other.x < p.x))
-    );
+  // --- ACTIONS DE BALLE (PASSE / TIR NATUREL) ---
+  if (distToBall < p.radius + ball.radius + 6) {
+    // Passe prioritaire si un coéquipier existe
+    let teammate = players.find(o => o.team === p.team && o.id !== p.id);
 
-    if (openTeammate && p.passCooldown === 0 && Math.random() < 0.3) {
-      let angle = Math.atan2(openTeammate.y - ball.y, openTeammate.x - ball.x);
-      ball.vx = Math.cos(angle) * 12;
-      ball.vy = Math.sin(angle) * 12;
-      p.passCooldown = 60; // Empêche le spam de passe
+    if (teammate && p.passCooldown === 0 && Math.random() < 0.5) {
+      let angle = Math.atan2(teammate.y - ball.y, teammate.x - ball.x);
+      ball.vx = Math.cos(angle) * 10;
+      ball.vy = Math.sin(angle) * 10;
+      p.passCooldown = 80;
       playKickSound();
       return;
     }
 
-    // 2. TIR VERS LES BUTS
-    let shootAngle = Math.atan2((canvas.height / 2) - ball.y, goalTargetX - ball.x);
-    ball.vx = Math.cos(shootAngle) * 13;
-    ball.vy = Math.sin(shootAngle) * 13;
+    // Tir avec imprécision si l'IA gagne déjà
+    let errorAngle = lead > 0 ? (Math.random() - 0.5) * 0.6 : (Math.random() - 0.5) * 0.2;
+    let shootAngle = Math.atan2((canvas.height / 2) - ball.y, goalTargetX - ball.x) + errorAngle;
+    
+    ball.vx = Math.cos(shootAngle) * 12;
+    ball.vy = Math.sin(shootAngle) * 12;
     playKickSound();
   }
 }
 
-// --- DÉPART & COMPTE À REBOURS (TOP DÉPART) ---
+// --- DÉPART ET COMPTE À REBOURS OBLIGATOIRE ---
 function startCountdown(callback) {
   isCountdown = true;
   countdownValue = 3;
@@ -369,11 +366,11 @@ function resetPositions(starter = 1) {
 
   players.forEach(p => {
     if (p.team === 1) {
-      p.x = 120 + (index1 * 60);
+      p.x = 130 + (index1 * 50);
       p.y = 120 + (index1 * (260 / Math.max(1, format - 1)));
       index1++;
     } else {
-      p.x = canvas.width - 120 - (index2 * 60);
+      p.x = canvas.width - 130 - (index2 * 50);
       p.y = 120 + (index2 * (260 / Math.max(1, format - 1)));
       index2++;
     }
@@ -397,7 +394,7 @@ function resetGame() {
   startBackgroundMusic();
 }
 
-// --- BOUCLE D'UPDATE & PHYSIQUE ---
+// --- BOUCLE DE JEU & PHYSIQUE ---
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
@@ -421,14 +418,15 @@ function update() {
   ball.x += ball.vx; ball.y += ball.vy;
   ball.vx *= ball.friction; ball.vy *= ball.friction;
 
-  // Rebonds murs haut/bas
+  // Rebond haut / bas
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) ball.vy *= -1;
-  // Rebonds poteaux/murs de cage
+  
+  // Rebond cage / mur
   if (ball.y < goalY || ball.y > goalY + goalHeight) {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // Buts inscrits
+  // Buts
   if (ball.x < 0) { 
     score2++; score2El.textContent = score2; 
     playGoalSound(); resetPositions(2); startCountdown(); 
@@ -471,7 +469,7 @@ function pushBall(p) {
   }
 }
 
-// --- RENDU GRAPHIQUE ---
+// --- AFFICHAGE & RENDU CANVA ---
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
@@ -496,19 +494,19 @@ function draw() {
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
-  // OVERLAY DU COMPTE À REBOURS (TOP DÉPART)
+  // --- OVERLAY DU TOP DÉPART ---
   if (isCountdown) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.font = "bold 70px system-ui";
+    ctx.font = "bold 80px system-ui";
     ctx.fillStyle = "#ffeb3b";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     
     let text = countdownValue > 0 ? countdownValue : "GO !";
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-    ctx.textAlign = "left"; // Reset alignement
+    ctx.textAlign = "left";
   }
 }
 

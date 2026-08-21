@@ -22,13 +22,13 @@ const gameDurationSelect = document.getElementById("gameDuration");
 let score1 = 0, score2 = 0, round = 1;
 let totalTime = 180, timeLeft = 90;
 let isPaused = false, isGameOver = false;
-let timerInterval = null, musicInterval = null;
+let isCountdown = false, countdownValue = 3; // Gestion du Top Départ
+let timerInterval = null, musicInterval = null, countdownInterval = null;
 let musicEnabled = true;
 
 const keys = {};
 
-// --- CODE SECRET DÉVELOPPEUR INVISIBLE ---
-// Enchaînement tactile/clavier : Haut -> Haut -> Bas
+// --- CODE SECRET DÉVELOPPEUR INVISIBLE (Haut - Haut - Bas) ---
 let devCodeSequence = [];
 const SECRET_CODE = ["ArrowUp", "ArrowUp", "ArrowDown"];
 
@@ -53,21 +53,23 @@ function triggerDevGoal() {
   }
 }
 
-// --- AUDIO & MUSIQUE 8-BIT ---
+// --- AUDIO & MOTEUR SONORE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-function playKickSound() {
+function playTone(freq, duration, type = "sine") {
   if (audioCtx.state === 'suspended') audioCtx.resume();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(160, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.12);
-  gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
   osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+  osc.start(); osc.stop(audioCtx.currentTime + duration);
 }
+
+function playKickSound() { playTone(150, 0.1, "triangle"); }
+function playBeepSound(high = false) { playTone(high ? 800 : 400, 0.2, "sine"); }
 
 function playGoalSound() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -91,13 +93,13 @@ let noteIndex = 0;
 function startBackgroundMusic() {
   if (musicInterval) clearInterval(musicInterval);
   musicInterval = setInterval(() => {
-    if (!musicEnabled || isPaused || isGameOver) return;
+    if (!musicEnabled || isPaused || isGameOver || isCountdown) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(notes[noteIndex], audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
     osc.connect(gain); gain.connect(audioCtx.destination);
     osc.start(); osc.stop(audioCtx.currentTime + 0.2);
@@ -105,27 +107,19 @@ function startBackgroundMusic() {
   }, 300);
 }
 
-// --- MULTIJOUEUR RÉSEAU (PEERJS / WEBRTC) ---
-let peer = null;
-let conn = null;
-let isHost = true;
-let myPlayerId = 1;
+// --- MULTIJOUEUR RÉSEAU (PEERJS) ---
+let peer = null, conn = null, isHost = true, myPlayerId = 1;
 
 btnCreateRoom.addEventListener("click", () => {
   const roomId = Math.floor(1000 + Math.random() * 9000).toString();
   peer = new Peer(`foot-game-${roomId}`);
-  
   netStatus.textContent = "Création du salon...";
-
   peer.on('open', () => {
     netStatus.textContent = `🟢 Salon Créé ! CODE: ${roomId} (En attente...)`;
-    isHost = true;
-    myPlayerId = 1;
+    isHost = true; myPlayerId = 1;
   });
-
   peer.on('connection', (c) => {
-    conn = c;
-    setupNetworkEvents();
+    conn = c; setupNetworkEvents();
     netStatus.textContent = `⚡ Joueur 2 Connecté !`;
   });
 });
@@ -133,36 +127,28 @@ btnCreateRoom.addEventListener("click", () => {
 btnJoinRoom.addEventListener("click", () => {
   const roomId = roomInput.value.trim();
   if (roomId.length !== 4) return alert("Entrez un code à 4 chiffres valide.");
-
   peer = new Peer();
   netStatus.textContent = "Connexion...";
-
   peer.on('open', () => {
     conn = peer.connect(`foot-game-${roomId}`);
-    isHost = false;
-    myPlayerId = 2;
+    isHost = false; myPlayerId = 2;
     setupNetworkEvents();
   });
 });
 
 function setupNetworkEvents() {
-  conn.on('open', () => {
-    netStatus.textContent = `🟢 Connecté au match en réseau !`;
-  });
-
+  conn.on('open', () => netStatus.textContent = `🟢 Connecté au match !`);
   conn.on('data', (data) => {
     if (data.type === 'STATE_UPDATE' && !isHost) {
-      players[0].x = data.p1.x; players[0].y = data.p1.y;
-      players[1].x = data.p2.x; players[1].y = data.p2.y;
+      players.forEach((p, i) => { if(data.players[i]) { p.x = data.players[i].x; p.y = data.players[i].y; } });
       ball.x = data.ball.x; ball.y = data.ball.y;
       score1 = data.score1; score2 = data.score2;
       score1El.textContent = score1; score2El.textContent = score2;
+      isCountdown = data.isCountdown; countdownValue = data.countdownValue;
     }
     if (data.type === 'INPUT_UPDATE' && isHost) {
-      keys["RemoteUp"] = data.up;
-      keys["RemoteDown"] = data.down;
-      keys["RemoteLeft"] = data.left;
-      keys["RemoteRight"] = data.right;
+      keys["RemoteUp"] = data.up; keys["RemoteDown"] = data.down;
+      keys["RemoteLeft"] = data.left; keys["RemoteRight"] = data.right;
       keys["RemoteShoot"] = data.shoot;
     }
   });
@@ -170,54 +156,42 @@ function setupNetworkEvents() {
 
 function sendNetworkData() {
   if (!conn || !conn.open) return;
-
   if (isHost) {
     conn.send({
       type: 'STATE_UPDATE',
-      p1: { x: players[0].x, y: players[0].y },
-      p2: { x: players[1].x, y: players[1].y },
+      players: players.map(p => ({ x: p.x, y: p.y })),
       ball: { x: ball.x, y: ball.y },
-      score1: score1, score2: score2
+      score1: score1, score2: score2,
+      isCountdown: isCountdown, countdownValue: countdownValue
     });
   } else {
     conn.send({
       type: 'INPUT_UPDATE',
-      up: keys["ArrowUp"] || keys["KeyW"],
-      down: keys["ArrowDown"] || keys["KeyS"],
-      left: keys["ArrowLeft"] || keys["KeyA"],
-      right: keys["ArrowRight"] || keys["KeyD"],
+      up: keys["ArrowUp"] || keys["KeyW"], down: keys["ArrowDown"] || keys["KeyS"],
+      left: keys["ArrowLeft"] || keys["KeyA"], right: keys["ArrowRight"] || keys["KeyD"],
       shoot: keys["Space"] || keys["KeyF"]
     });
   }
 }
 
-// --- CONTRÔLES TACTILES ET CLAVIER ---
+// --- CONTRÔLES TACTILES & CLAVIER ---
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
 function bindBtn(id, keyCode) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.addEventListener("touchstart", (e) => { e.preventDefault(); keys[keyCode] = true; registerDevTouch(keyCode); });
+  el.addEventListener("touchstart", (e) => { e.preventDefault(); keys[keyCode] = true; });
   el.addEventListener("touchend", (e) => { e.preventDefault(); keys[keyCode] = false; });
-  el.addEventListener("mousedown", () => { keys[keyCode] = true; registerDevTouch(keyCode); });
+  el.addEventListener("mousedown", () => keys[keyCode] = true);
   el.addEventListener("mouseup", () => keys[keyCode] = false);
-}
-
-function registerDevTouch(keyCode) {
-  devCodeSequence.push(keyCode);
-  if (devCodeSequence.length > SECRET_CODE.length) devCodeSequence.shift();
-  if (JSON.stringify(devCodeSequence) === JSON.stringify(SECRET_CODE)) {
-    triggerDevGoal();
-    devCodeSequence = [];
-  }
 }
 
 bindBtn("btnUp", "ArrowUp"); bindBtn("btnDown", "ArrowDown");
 bindBtn("btnLeft", "ArrowLeft"); bindBtn("btnRight", "ArrowRight");
 bindBtn("btnShoot", "Space"); bindBtn("btnPass", "KeyP");
 
-// --- MOTEUR DE JEU ET IA HUMANISÉE ---
+// --- MOTEUR DE JEU ET ÉQUIPES ---
 let players = [];
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
 const goalHeight = 200;
@@ -226,7 +200,6 @@ const goalY = (canvas.height - goalHeight) / 2;
 function initMatch() {
   const format = parseInt(teamFormatSelect.value);
   const humanCount = parseInt(humanCountSelect.value);
-  
   players = [];
   let currentHuman = 1;
 
@@ -234,20 +207,21 @@ function initMatch() {
     for (let i = 0; i < format; i++) {
       const isHuman = currentHuman <= humanCount;
       const teamColor = team === 1 ? "#00d2ff" : "#ff416c";
-      const startX = team === 1 ? 150 + (i * 40) : 650 - (i * 40);
-      const startY = 150 + (i * 80);
+      // Définition des rôles : Le 1er est gardien/défenseur, les autres attaquants
+      const role = (i === 0) ? "DEFENDER" : "ATTACKER";
 
       players.push({
         id: players.length + 1,
         team: team,
+        role: role,
         isHuman: isHuman,
         humanId: isHuman ? currentHuman : null,
-        x: startX, y: startY,
+        x: 0, y: 0,
         radius: 18,
         color: teamColor,
-        speed: isHuman ? 4.8 : 3.8,
-        num: isHuman ? `J${currentHuman}` : "IA",
-        errorTimer: 0
+        speed: isHuman ? 4.8 : 3.6,
+        num: isHuman ? `J${currentHuman}` : `IA${i+1}`,
+        passCooldown: 0
       });
 
       if (isHuman) currentHuman++;
@@ -255,34 +229,111 @@ function initMatch() {
   }
 }
 
+// --- INTELLIGENCE ARTIFICIELLE AVANCÉE (TACTIQUE & PASSES) ---
 function updateAI(p) {
-  p.errorTimer = (p.errorTimer || 0) + 1;
-  let errorOffset = Math.sin(p.errorTimer * 0.05) * 20;
+  if (p.passCooldown > 0) p.passCooldown--;
 
-  let targetX = ball.x + errorOffset;
-  let targetY = ball.y + errorOffset;
+  const goalTargetX = p.team === 1 ? canvas.width : 0;
+  const ownGoalX = p.team === 1 ? 0 : canvas.width;
+  const distToBall = Math.hypot(ball.x - p.x, ball.y - p.y);
 
-  if ((p.team === 1 && ball.x < canvas.width * 0.75) || (p.team === 2 && ball.x > canvas.width * 0.25)) {
-    if (p.x < targetX) p.x += p.speed * 0.8;
-    if (p.x > targetX) p.x -= p.speed * 0.8;
-    if (p.y < targetY) p.y += p.speed * 0.8;
-    if (p.y > targetY) p.y -= p.speed * 0.8;
+  // Recherche du coéquipier le plus proche du ballon (pour ne pas tous se ruer dessus)
+  let closestTeammate = players
+    .filter(other => other.team === p.team)
+    .reduce((prev, curr) => {
+      let dPrev = Math.hypot(ball.x - prev.x, ball.y - prev.y);
+      let dCurr = Math.hypot(ball.x - curr.x, ball.y - curr.y);
+      return dCurr < dPrev ? curr : prev;
+    });
+
+  const isClosest = (closestTeammate.id === p.id);
+  let targetX = p.x, targetY = p.y;
+
+  if (p.role === "DEFENDER") {
+    // Le défenseur/gardien reste en couverture devant sa cage
+    targetX = p.team === 1 ? 80 : canvas.width - 80;
+    targetY = Math.max(goalY + 20, Math.min(goalY + goalHeight - 20, ball.y));
+    
+    // Si le ballon rentre dangereusement dans la zone, le défenseur intervient
+    if ((p.team === 1 && ball.x < 250) || (p.team === 2 && ball.x > canvas.width - 250)) {
+      targetX = ball.x;
+    }
+  } else {
+    // Rôle ATTAQUANT
+    if (isClosest) {
+      // Aller vers le ballon
+      targetX = ball.x;
+      targetY = ball.y;
+    } else {
+      // Se démarquer intelligemment en attaque
+      targetX = p.team === 1 ? ball.x + 120 : ball.x - 120;
+      targetY = ball.y + (p.id % 2 === 0 ? 90 : -90);
+    }
   }
 
-  let dx = ball.x - p.x, dy = ball.y - p.y;
-  if (Math.hypot(dx, dy) < p.radius + ball.radius + 10 && Math.random() < 0.08) {
-    let targetGoalX = p.team === 1 ? canvas.width : 0;
-    let shootAngle = Math.atan2(canvas.height / 2 - ball.y, targetGoalX - ball.x);
+  // Déplacement fluide vers la cible
+  let dx = targetX - p.x, dy = targetY - p.y;
+  let dist = Math.hypot(dx, dy);
+  if (dist > 5) {
+    p.x += (dx / dist) * p.speed;
+    p.y += (dy / dist) * p.speed;
+  }
+
+  // --- PRISE DE DÉCISION (TIR OU PASSE) ---
+  if (distToBall < p.radius + ball.radius + 8) {
+    // 1. TENTATIVE DE PASSE INTELLIGENTE
+    let openTeammate = players.find(other => 
+      other.team === p.team && 
+      other.id !== p.id && 
+      ((p.team === 1 && other.x > p.x) || (p.team === 2 && other.x < p.x))
+    );
+
+    if (openTeammate && p.passCooldown === 0 && Math.random() < 0.3) {
+      let angle = Math.atan2(openTeammate.y - ball.y, openTeammate.x - ball.x);
+      ball.vx = Math.cos(angle) * 12;
+      ball.vy = Math.sin(angle) * 12;
+      p.passCooldown = 60; // Empêche le spam de passe
+      playKickSound();
+      return;
+    }
+
+    // 2. TIR VERS LES BUTS
+    let shootAngle = Math.atan2((canvas.height / 2) - ball.y, goalTargetX - ball.x);
     ball.vx = Math.cos(shootAngle) * 13;
     ball.vy = Math.sin(shootAngle) * 13;
     playKickSound();
   }
 }
 
+// --- DÉPART & COMPTE À REBOURS (TOP DÉPART) ---
+function startCountdown(callback) {
+  isCountdown = true;
+  countdownValue = 3;
+  statusEl.textContent = "PRÊT ?";
+  playBeepSound(false);
+
+  if (countdownInterval) clearInterval(countdownInterval);
+
+  countdownInterval = setInterval(() => {
+    countdownValue--;
+    if (countdownValue > 0) {
+      playBeepSound(false);
+    } else if (countdownValue === 0) {
+      playBeepSound(true);
+      statusEl.textContent = "GO !";
+    } else {
+      clearInterval(countdownInterval);
+      isCountdown = false;
+      statusEl.textContent = `ROUND ${round}`;
+      if (callback) callback();
+    }
+  }, 1000);
+}
+
 function startTimer() {
   clearInterval(timerInterval);
   timerInterval = setInterval(() => {
-    if (!isPaused && !isGameOver) {
+    if (!isPaused && !isGameOver && !isCountdown) {
       timeLeft--;
       let mins = Math.floor(timeLeft / 60);
       let secs = timeLeft % 60;
@@ -297,7 +348,8 @@ function startTimer() {
 
 function startRound2() {
   round = 2; timeLeft = Math.floor(totalTime / 2);
-  statusEl.textContent = "ROUND 2"; resetPositions(2);
+  resetPositions(2);
+  startCountdown();
 }
 
 function endGame() {
@@ -314,13 +366,15 @@ function endGame() {
 function resetPositions(starter = 1) {
   const format = parseInt(teamFormatSelect.value);
   let index1 = 0, index2 = 0;
-  
+
   players.forEach(p => {
     if (p.team === 1) {
-      p.x = 150; p.y = 120 + (index1 * (260 / Math.max(1, format - 1)));
+      p.x = 120 + (index1 * 60);
+      p.y = 120 + (index1 * (260 / Math.max(1, format - 1)));
       index1++;
     } else {
-      p.x = 650; p.y = 120 + (index2 * (260 / Math.max(1, format - 1)));
+      p.x = canvas.width - 120 - (index2 * 60);
+      p.y = 120 + (index2 * (260 / Math.max(1, format - 1)));
       index2++;
     }
   });
@@ -336,15 +390,16 @@ function resetGame() {
   score1 = 0; score2 = 0; round = 1;
   isGameOver = false; isPaused = false;
   score1El.textContent = "0"; score2El.textContent = "0";
-  statusEl.textContent = "ROUND 1";
+  
   initMatch();
   resetPositions(1);
-  startTimer();
+  startCountdown(() => { startTimer(); });
   startBackgroundMusic();
 }
 
+// --- BOUCLE D'UPDATE & PHYSIQUE ---
 function update() {
-  if (isPaused || isGameOver) return;
+  if (isPaused || isGameOver || isCountdown) return;
 
   players.forEach(p => {
     if (p.isHuman) {
@@ -366,13 +421,22 @@ function update() {
   ball.x += ball.vx; ball.y += ball.vy;
   ball.vx *= ball.friction; ball.vy *= ball.friction;
 
+  // Rebonds murs haut/bas
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) ball.vy *= -1;
+  // Rebonds poteaux/murs de cage
   if (ball.y < goalY || ball.y > goalY + goalHeight) {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  if (ball.x < 0) { score2++; score2El.textContent = score2; playGoalSound(); resetPositions(2); }
-  else if (ball.x > canvas.width) { score1++; score1El.textContent = score1; playGoalSound(); resetPositions(1); }
+  // Buts inscrits
+  if (ball.x < 0) { 
+    score2++; score2El.textContent = score2; 
+    playGoalSound(); resetPositions(2); startCountdown(); 
+  }
+  else if (ball.x > canvas.width) { 
+    score1++; score1El.textContent = score1; 
+    playGoalSound(); resetPositions(1); startCountdown(); 
+  }
 
   sendNetworkData();
 }
@@ -389,7 +453,7 @@ function handleAction(p, shootKey, passKey) {
       let teammate = players.find(other => other.team === p.team && other.id !== p.id);
       if (teammate) {
         let passAngle = Math.atan2(teammate.y - ball.y, teammate.x - ball.x);
-        ball.vx = Math.cos(passAngle) * 11; ball.vy = Math.sin(passAngle) * 11;
+        ball.vx = Math.cos(passAngle) * 12; ball.vy = Math.sin(passAngle) * 12;
         playKickSound();
         keys[passKey] = false;
       }
@@ -403,20 +467,24 @@ function pushBall(p) {
     let angle = Math.atan2(dy, dx);
     let overlap = (p.radius + ball.radius) - dist;
     ball.x += Math.cos(angle) * overlap; ball.y += Math.sin(angle) * overlap;
-    ball.vx = Math.cos(angle) * 5; ball.vy = Math.sin(angle) * 5;
+    ball.vx = Math.cos(angle) * 4; ball.vy = Math.sin(angle) * 4;
   }
 }
 
+// --- RENDU GRAPHIQUE ---
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
+  // Terrain
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
   ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2); ctx.stroke();
 
+  // Cages
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, goalY, 8, goalHeight); ctx.fillRect(canvas.width - 8, goalY, 8, goalHeight);
 
+  // Joueurs
   players.forEach(p => {
     ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fillStyle = p.color; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.stroke();
@@ -424,14 +492,30 @@ function draw() {
     ctx.fillText(p.num, p.x - 7, p.y + 4);
   });
 
+  // Ballon
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
+
+  // OVERLAY DU COMPTE À REBOURS (TOP DÉPART)
+  if (isCountdown) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = "bold 70px system-ui";
+    ctx.fillStyle = "#ffeb3b";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    let text = countdownValue > 0 ? countdownValue : "GO !";
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = "left"; // Reset alignement
+  }
 }
 
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
 btnPause.addEventListener("click", () => {
-  if (isGameOver) return;
+  if (isGameOver || isCountdown) return;
   isPaused = !isPaused;
   btnPause.textContent = isPaused ? "▶️ Reprendre" : "⏸️ Pause";
   statusEl.textContent = isPaused ? "PAUSE" : `ROUND ${round}`;

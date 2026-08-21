@@ -218,10 +218,9 @@ function initMatch() {
         x: 0, y: 0,
         radius: 18,
         color: teamColor,
-        speed: isHuman ? 4.8 : 3.4, // Vitesse rééquilibrée
+        speed: 4.5, // Vitesse strictement identique pour IA et Humains
         num: isHuman ? `J${currentHuman}` : `IA${i+1}`,
-        passCooldown: 0,
-        reactionDelay: 0
+        passCooldown: 0
       });
 
       if (isHuman) currentHuman++;
@@ -229,80 +228,83 @@ function initMatch() {
   }
 }
 
-// --- INTELLIGENCE ARTIFICIELLE NATURELLE ET NORMALE ---
+// --- INTELLIGENCE ARTIFICIELLE NORMALE ET FLUIDE ---
 function updateAI(p) {
   if (p.passCooldown > 0) p.passCooldown--;
-
-  // Différence de score pour réguler l'IA (si l'IA mène, elle joue plus détendue)
-  const myScore = p.team === 1 ? score1 : score2;
-  const oppScore = p.team === 1 ? score2 : score1;
-  const lead = myScore - oppScore;
-
-  // Calcul du délai de réaction (plus grand si l'IA mène pour éviter qu'elle enchaîne les buts)
-  p.reactionDelay = (p.reactionDelay || 0) + 1;
-  const delayThreshold = lead > 0 ? 15 : 5; // Simule un hésitation naturelle
-
-  if (p.reactionDelay < delayThreshold) return;
-  p.reactionDelay = 0;
 
   const goalTargetX = p.team === 1 ? canvas.width : 0;
   const distToBall = Math.hypot(ball.x - p.x, ball.y - p.y);
 
+  // Déterminer quel coéquipier est le plus proche du ballon
+  let closestTeammate = players
+    .filter(other => other.team === p.team)
+    .reduce((prev, curr) => {
+      let dPrev = Math.hypot(ball.x - prev.x, ball.y - prev.y);
+      let dCurr = Math.hypot(ball.x - curr.x, ball.y - curr.y);
+      return dCurr < dPrev ? curr : prev;
+    });
+
+  const isClosest = (closestTeammate.id === p.id);
   let targetX = p.x, targetY = p.y;
 
   if (p.role === "DEFENDER") {
-    targetX = p.team === 1 ? 90 : canvas.width - 90;
-    targetY = Math.max(goalY + 25, Math.min(goalY + goalHeight - 25, ball.y));
-    if ((p.team === 1 && ball.x < 220) || (p.team === 2 && ball.x > canvas.width - 220)) {
-      targetX = ball.x;
+    // Le défenseur protège la cage et n'avance que si le ballon entre dans sa zone
+    targetX = p.team === 1 ? 80 : canvas.width - 80;
+    targetY = Math.max(goalY + 20, Math.min(goalY + goalHeight - 20, ball.y));
+
+    if ((p.team === 1 && ball.x < canvas.width * 0.4) || (p.team === 2 && ball.x > canvas.width * 0.6)) {
+      if (isClosest) {
+        targetX = ball.x;
+        targetY = ball.y;
+      }
     }
   } else {
-    // Si l'IA mène de 2 buts ou +, elle ralentit son attaque
-    if (lead >= 2 && Math.random() < 0.3) {
-      targetX = p.team === 1 ? 300 : canvas.width - 300;
-      targetY = ball.y;
-    } else {
+    // Attaquants : le plus proche va au ballon, l'autre se positionne en soutien
+    if (isClosest) {
       targetX = ball.x;
       targetY = ball.y;
+    } else {
+      targetX = p.team === 1 ? ball.x - 80 : ball.x + 80;
+      targetY = ball.y + (p.id % 2 === 0 ? 70 : -70);
     }
   }
 
-  // Erreur humaine (imprécision dans les déplacements)
-  let errorX = (Math.random() - 0.5) * (lead > 0 ? 30 : 10);
-  let errorY = (Math.random() - 0.5) * (lead > 0 ? 30 : 10);
-
-  let dx = (targetX + errorX) - p.x, dy = (targetY + errorY) - p.y;
+  // Déplacement direct et fluide vers l'objectif
+  let dx = targetX - p.x, dy = targetY - p.y;
   let dist = Math.hypot(dx, dy);
-  if (dist > 5) {
+  if (dist > 2) {
     p.x += (dx / dist) * p.speed;
     p.y += (dy / dist) * p.speed;
   }
 
-  // --- ACTIONS DE BALLE (PASSE / TIR NATUREL) ---
+  // --- COMPORTEMENT AVEC LE BALLON ---
   if (distToBall < p.radius + ball.radius + 6) {
-    // Passe prioritaire si un coéquipier existe
-    let teammate = players.find(o => o.team === p.team && o.id !== p.id);
+    // Vérifier s'il y a un coéquipier bien placé en avant
+    let teammate = players.find(other => 
+      other.team === p.team && 
+      other.id !== p.id && 
+      ((p.team === 1 && other.x > p.x) || (p.team === 2 && other.x < p.x))
+    );
 
-    if (teammate && p.passCooldown === 0 && Math.random() < 0.5) {
+    // Passe vers le coéquipier si disponible
+    if (teammate && p.passCooldown === 0 && Math.random() < 0.4) {
       let angle = Math.atan2(teammate.y - ball.y, teammate.x - ball.x);
-      ball.vx = Math.cos(angle) * 10;
-      ball.vy = Math.sin(angle) * 10;
-      p.passCooldown = 80;
+      ball.vx = Math.cos(angle) * 12;
+      ball.vy = Math.sin(angle) * 12;
+      p.passCooldown = 40;
       playKickSound();
       return;
     }
 
-    // Tir avec imprécision si l'IA gagne déjà
-    let errorAngle = lead > 0 ? (Math.random() - 0.5) * 0.6 : (Math.random() - 0.5) * 0.2;
-    let shootAngle = Math.atan2((canvas.height / 2) - ball.y, goalTargetX - ball.x) + errorAngle;
-    
-    ball.vx = Math.cos(shootAngle) * 12;
-    ball.vy = Math.sin(shootAngle) * 12;
+    // Tir direct vers le but adverse
+    let shootAngle = Math.atan2((canvas.height / 2) - ball.y, goalTargetX - ball.x);
+    ball.vx = Math.cos(shootAngle) * 13;
+    ball.vy = Math.sin(shootAngle) * 13;
     playKickSound();
   }
 }
 
-// --- DÉPART ET COMPTE À REBOURS OBLIGATOIRE ---
+// --- DÉPART ET COMPTE À REBOURS ---
 function startCountdown(callback) {
   isCountdown = true;
   countdownValue = 3;
@@ -494,7 +496,7 @@ function draw() {
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
-  // --- OVERLAY DU TOP DÉPART ---
+  // OVERLAY DU TOP DÉPART
   if (isCountdown) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);

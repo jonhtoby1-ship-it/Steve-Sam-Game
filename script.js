@@ -205,13 +205,12 @@ const goalY = (canvas.height - goalHeight) / 2;
 
 // --- IA AVEC 70% D'IMPRÉCISION ET VITESSE D'HUMAIN ---
 function updateAI() {
-  p2.speed = 5; // Même vitesse que le joueur humain
+  p2.speed = 5;
 
   let targetX, targetY;
   const targetGoalX = 0;
   const targetGoalY = goalY + goalHeight / 2;
 
-  // L'IA ne joue activement que si elle a moins de 3 buts
   if (ball.x > canvas.width / 2 && score2 < 3) {
     targetX = ball.x;
     targetY = ball.y;
@@ -220,7 +219,6 @@ function updateAI() {
     targetY = canvas.height / 2;
   }
 
-  // Déplacement
   if (p2.x < targetX) p2.x += p2.speed;
   if (p2.x > targetX) p2.x -= p2.speed;
   if (p2.y < targetY) p2.y += p2.speed;
@@ -233,11 +231,9 @@ function updateAI() {
   let dy = ball.y - p2.y;
   let dist = Math.hypot(dx, dy);
 
-  // Déclenchement de la frappe
   if (dist < p2.radius + ball.radius + 6) {
     let angle = Math.atan2(targetGoalY - ball.y, targetGoalX - ball.x);
 
-    // 70% DE CHANCES DE RATER LE TIR (déviation de trajectoire)
     if (Math.random() < 0.70) {
       angle += (Math.random() - 0.5) * 1.2; 
     }
@@ -331,17 +327,18 @@ function resetGame() {
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
+  // --- DÉPLACEMENT DU JOUEUR 1 (Liberté totale sur tout le terrain) ---
   if ((keys["ArrowUp"] || keys["KeyW"]) && p1.y - p1.radius > 0) p1.y -= p1.speed;
   if ((keys["ArrowDown"] || keys["KeyS"]) && p1.y + p1.radius < canvas.height) p1.y += p1.speed;
   if ((keys["ArrowLeft"] || keys["KeyA"]) && p1.x - p1.radius > 0) p1.x -= p1.speed;
-  if ((keys["ArrowRight"] || keys["KeyD"]) && p1.x + p1.radius < canvas.width / 2 - p1.radius) p1.x += p1.speed;
+  if ((keys["ArrowRight"] || keys["KeyD"]) && p1.x + p1.radius < canvas.width - p1.radius) p1.x += p1.speed;
 
   handleAction(p1, "Space");
 
   if (conn && conn.open && !isHost) {
     if (keys["RemoteUp"] && p2.y - p2.radius > 0) p2.y -= p2.speed;
     if (keys["RemoteDown"] && p2.y + p2.radius < canvas.height) p2.y += p2.speed;
-    if (keys["RemoteLeft"] && p2.x - p2.radius > canvas.width / 2 + p2.radius) p2.x -= p2.speed;
+    if (keys["RemoteLeft"] && p2.x - p2.radius > p2.radius) p2.x -= p2.speed;
     if (keys["RemoteRight"] && p2.x + p2.radius < canvas.width) p2.x += p2.speed;
   } else {
     updateAI();
@@ -359,13 +356,12 @@ function update() {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // VERROUILLAGE ULTRA STRICT À 3 BUTS MAXIMUM
+  // LOGIQUE DE BUTS
   if (ball.x < 0) {
     if (score2 < 3) {
       score2++; score2El.textContent = score2;
       playGoalSound(); resetPositions(2); startCountdown();
     } else {
-      // Rebond forcé si l'IA tente de dépasser 3 buts
       ball.vx = 12;
       ball.x = 15;
     }

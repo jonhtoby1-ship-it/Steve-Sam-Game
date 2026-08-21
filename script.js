@@ -203,7 +203,7 @@ const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, frict
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// --- IA AVEC 70% D'IMPRÉCISION ET VITESSE D'HUMAIN ---
+// --- IA AVEC 70% D'IMPRÉCISION ET RESTREINTE À SON CAMP ---
 function updateAI() {
   p2.speed = 5;
 
@@ -327,7 +327,7 @@ function resetGame() {
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
-  // --- DÉPLACEMENT DU JOUEUR 1 (Liberté totale sur tout le terrain) ---
+  // --- DÉPLACEMENT DU JOUEUR (Accès autorisé sur TOUT le terrain) ---
   if ((keys["ArrowUp"] || keys["KeyW"]) && p1.y - p1.radius > 0) p1.y -= p1.speed;
   if ((keys["ArrowDown"] || keys["KeyS"]) && p1.y + p1.radius < canvas.height) p1.y += p1.speed;
   if ((keys["ArrowLeft"] || keys["KeyA"]) && p1.x - p1.radius > 0) p1.x -= p1.speed;
@@ -356,7 +356,7 @@ function update() {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // LOGIQUE DE BUTS
+  // --- LOGIQUE DE BUTS ---
   if (ball.x < 0) {
     if (score2 < 3) {
       score2++; score2El.textContent = score2;

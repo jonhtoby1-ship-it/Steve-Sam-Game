@@ -197,15 +197,27 @@ bindBtn("btnShoot", "Space");
 
 // --- MOTEUR DE JEU ---
 const p1 = { x: 100, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
-const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 4, num: "IA" };
+const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 3.8, num: "J2" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
 
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
+// IA RÉALISTE : Attaque & Défense
 function updateAI() {
-  const targetX = ball.x;
-  const targetY = ball.y;
+  let targetX, targetY;
+  const targetGoalX = 0;
+  const targetGoalY = goalY + goalHeight / 2;
+
+  if (ball.x > canvas.width / 2) {
+    // Attaque : Se placer derrière le ballon
+    targetX = ball.x + 25;
+    targetY = ball.y;
+  } else {
+    // Défense : Repli devant sa propre cage
+    targetX = canvas.width - 150;
+    targetY = Math.max(goalY, Math.min(goalY + goalHeight, ball.y));
+  }
 
   if (p2.x < targetX) p2.x += p2.speed;
   if (p2.x > targetX) p2.x -= p2.speed;
@@ -219,10 +231,10 @@ function updateAI() {
   let dy = ball.y - p2.y;
   let dist = Math.hypot(dx, dy);
 
-  if (dist < p2.radius + ball.radius + 5) {
-    let angle = Math.atan2(dy, dx);
-    ball.vx = Math.cos(angle) * 12;
-    ball.vy = Math.sin(angle) * 12;
+  if (dist < p2.radius + ball.radius + 6) {
+    let angle = Math.atan2(targetGoalY - ball.y, targetGoalX - ball.x);
+    ball.vx = Math.cos(angle) * 11;
+    ball.vy = Math.sin(angle) * 11;
     playKickSound();
   }
 }
@@ -283,7 +295,7 @@ function endGame() {
   else reward = "🥈 RÉCOMPENSE : MÉDAILLE D'ARGENT (Match Nul) !";
 
   playGoalSound();
-  alert(`FIN DU MATCH !\n\nScore : Vous ${score1} - ${score2} IA\n\n${reward}`);
+  alert(`FIN DU MATCH !\n\nScore : Vous ${score1} - ${score2} J2\n\n${reward}`);
 }
 
 function resetPositions(starter = 1) {

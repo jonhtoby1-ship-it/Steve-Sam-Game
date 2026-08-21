@@ -197,36 +197,40 @@ bindBtn("btnShoot", "Space");
 
 // --- MOTEUR DE JEU ---
 const p1 = { x: 100, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
-const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 3.8, num: "J2" };
+const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 3.5, num: "J2" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
 
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// IA RÉALISTE : Attaque & Défense
+// --- IA NATURELLE (Reste exclusivement dans sa moitié de terrain) ---
 function updateAI() {
   let targetX, targetY;
   const targetGoalX = 0;
   const targetGoalY = goalY + goalHeight / 2;
 
+  // Si la balle est chez l'IA (Moitié droite du terrain)
   if (ball.x > canvas.width / 2) {
-    // Attaque : Se placer derrière le ballon
-    targetX = ball.x + 25;
+    // L'IA défend son camp et intercepte le ballon
+    targetX = ball.x;
     targetY = ball.y;
   } else {
-    // Défense : Repli devant sa propre cage
-    targetX = canvas.width - 150;
-    targetY = Math.max(goalY, Math.min(goalY + goalHeight, ball.y));
+    // Si la balle est chez J1, l'IA reste passive et attend au centre de sa zone
+    targetX = canvas.width - 160;
+    targetY = canvas.height / 2;
   }
 
+  // Déplacement fluide
   if (p2.x < targetX) p2.x += p2.speed;
   if (p2.x > targetX) p2.x -= p2.speed;
   if (p2.y < targetY) p2.y += p2.speed;
   if (p2.y > targetY) p2.y -= p2.speed;
 
-  p2.x = Math.max(p2.radius, Math.min(canvas.width - p2.radius, p2.x));
+  // STRICTEMENT INTERDIT DE FRANCHIR LA LIGNE MÉDIANE (L'IA reste chez elle)
+  p2.x = Math.max(canvas.width / 2 + p2.radius + 5, Math.min(canvas.width - p2.radius, p2.x));
   p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y));
 
+  // Tir vers les cages de J1 uniquement si la balle est à portée
   let dx = ball.x - p2.x;
   let dy = ball.y - p2.y;
   let dist = Math.hypot(dx, dy);
@@ -322,17 +326,18 @@ function resetGame() {
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
+  // Limite J1 à sa moitié de terrain également pour l'équité
   if ((keys["ArrowUp"] || keys["KeyW"]) && p1.y - p1.radius > 0) p1.y -= p1.speed;
   if ((keys["ArrowDown"] || keys["KeyS"]) && p1.y + p1.radius < canvas.height) p1.y += p1.speed;
   if ((keys["ArrowLeft"] || keys["KeyA"]) && p1.x - p1.radius > 0) p1.x -= p1.speed;
-  if ((keys["ArrowRight"] || keys["KeyD"]) && p1.x + p1.radius < canvas.width) p1.x += p1.speed;
+  if ((keys["ArrowRight"] || keys["KeyD"]) && p1.x + p1.radius < canvas.width / 2 - p1.radius) p1.x += p1.speed;
 
   handleAction(p1, "Space");
 
   if (conn && conn.open && !isHost) {
     if (keys["RemoteUp"] && p2.y - p2.radius > 0) p2.y -= p2.speed;
     if (keys["RemoteDown"] && p2.y + p2.radius < canvas.height) p2.y += p2.speed;
-    if (keys["RemoteLeft"] && p2.x - p2.radius > 0) p2.x -= p2.speed;
+    if (keys["RemoteLeft"] && p2.x - p2.radius > canvas.width / 2 + p2.radius) p2.x -= p2.speed;
     if (keys["RemoteRight"] && p2.x + p2.radius < canvas.width) p2.x += p2.speed;
   } else {
     updateAI();

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Super Match Football 2D</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="game-container">
+    <header class="scoreboard">
+      <div class="team team-1">
+        <span class="team-name">JOUEUR 1</span>
+        <span id="score1" class="score">0</span>
+      </div>
+      
+      <div class="timer-container">
+        <span id="timer">01:30</span>
+        <span id="game-status" class="status">EN COURS</span>
+      </div>
+
+      <div class="team team-2">
+        <span id="score2" class="score">0</span>
+        <span class="team-name">ADVERSAIRE</span>
+      </div>
+    </header>
+
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <!-- Commandes Tactiles pour Tablette & Mobile -->
+    <div class="touch-controls">
+      <div class="d-pad">
+        <div></div>
+        <div class="touch-btn" id="btnUp">⬆️</div>
+        <div></div>
+        <div class="touch-btn" id="btnLeft">⬅️</div>
+        <div></div>
+        <div class="touch-btn" id="btnRight">➡️</div>
+        <div></div>
+        <div class="touch-btn" id="btnDown">⬇️</div>
+        <div></div>
+      </div>
+
+      <div class="center-actions">
+        <button id="btnPause">⏸️ Pause</button>
+        <button id="btnReset">🔄 Recommencer</button>
+      </div>
+
+      <div class="touch-btn btn-shoot" id="btnShoot">TIR ⚽</div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -203,15 +203,20 @@ const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, frict
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// --- IA IDENTIQUE À LA VERSION D'ORIGINE ---
+// --- IA TOTALE : SE DÉPLACE DANS TOUT LE TERRAIN ---
 function updateAI() {
-  const targetX = ball.x > canvas.width / 2 ? ball.x : canvas.width - 150;
+  // L'IA cible directement la position exacte du ballon sur TOUT le terrain
+  const targetX = ball.x;
   const targetY = ball.y;
 
   if (p2.x < targetX) p2.x += p2.speed;
   if (p2.x > targetX) p2.x -= p2.speed;
   if (p2.y < targetY) p2.y += p2.speed;
   if (p2.y > targetY) p2.y -= p2.speed;
+
+  // Empêcher l'IA de sortir des limites du terrain
+  p2.x = Math.max(p2.radius, Math.min(canvas.width - p2.radius, p2.x));
+  p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y));
 
   // Tir de l'IA quand elle est proche de la balle
   let dx = ball.x - p2.x;

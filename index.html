@@ -80,7 +80,7 @@
       box-shadow: 0 8px 20px rgba(0,0,0,0.5);
     }
 
-    /* Panneau d'options haut / bas */
+    /* Panneau d'options */
     .controls-panel {
       width: 100%;
       max-width: 800px;
@@ -133,6 +133,50 @@
       text-align: center;
       margin-top: 5px;
     }
+
+    /* Commandes Tactiles / Boutons de direction */
+    .touch-controls {
+      display: flex;
+      width: 100%;
+      max-width: 800px;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 15px;
+      padding: 0 10px;
+    }
+
+    .d-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 50px);
+      grid-template-rows: repeat(3, 50px);
+      gap: 5px;
+    }
+
+    .d-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 8px;
+      font-size: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .btn-up { grid-column: 2; grid-row: 1; }
+    .btn-left { grid-column: 1; grid-row: 2; }
+    .btn-right { grid-column: 3; grid-row: 2; }
+    .btn-down { grid-column: 2; grid-row: 3; }
+
+    .action-btn {
+      width: 85px;
+      height: 85px;
+      border-radius: 50%;
+      background: #e94560;
+      border: 3px solid #fff;
+      font-size: 16px;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
   </style>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
@@ -149,6 +193,17 @@
 
   <div class="game-container">
     <canvas id="gameCanvas" width="800" height="500"></canvas>
+  </div>
+
+  <!-- Boutons de commandes tactiles -->
+  <div class="touch-controls">
+    <div class="d-pad">
+      <button class="d-btn btn-up" id="btnUp">⬆️</button>
+      <button class="d-btn btn-left" id="btnLeft">⬅️</button>
+      <button class="d-btn btn-right" id="btnRight">➡️</button>
+      <button class="d-btn btn-down" id="btnDown">⬇️</button>
+    </div>
+    <button class="action-btn" id="btnShoot">TIRER ⚽</button>
   </div>
 
   <div class="controls-panel">

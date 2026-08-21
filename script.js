@@ -15,8 +15,6 @@ const btnCreateRoom = document.getElementById("btnCreateRoom");
 const btnJoinRoom = document.getElementById("btnJoinRoom");
 const roomInput = document.getElementById("roomInput");
 
-const teamFormatSelect = document.getElementById("teamFormat");
-const humanCountSelect = document.getElementById("humanCount");
 const gameDurationSelect = document.getElementById("gameDuration");
 
 let score1 = 0, score2 = 0, round = 1;
@@ -110,37 +108,42 @@ function startBackgroundMusic() {
 // --- MULTIJOUEUR RÉSEAU (PEERJS) ---
 let peer = null, conn = null, isHost = true, myPlayerId = 1;
 
-btnCreateRoom.addEventListener("click", () => {
-  const roomId = Math.floor(1000 + Math.random() * 9000).toString();
-  peer = new Peer(`foot-game-${roomId}`);
-  netStatus.textContent = "Création du salon...";
-  peer.on('open', () => {
-    netStatus.textContent = `🟢 Salon Créé ! CODE: ${roomId} (En attente...)`;
-    isHost = true; myPlayerId = 1;
+if (btnCreateRoom) {
+  btnCreateRoom.addEventListener("click", () => {
+    const roomId = Math.floor(1000 + Math.random() * 9000).toString();
+    peer = new Peer(`foot-game-${roomId}`);
+    netStatus.textContent = "Création du salon...";
+    peer.on('open', () => {
+      netStatus.textContent = `🟢 Salon Créé ! CODE: ${roomId}`;
+      isHost = true; myPlayerId = 1;
+    });
+    peer.on('connection', (c) => {
+      conn = c; setupNetworkEvents();
+      netStatus.textContent = `⚡ Joueur 2 Connecté !`;
+    });
   });
-  peer.on('connection', (c) => {
-    conn = c; setupNetworkEvents();
-    netStatus.textContent = `⚡ Joueur 2 Connecté !`;
-  });
-});
+}
 
-btnJoinRoom.addEventListener("click", () => {
-  const roomId = roomInput.value.trim();
-  if (roomId.length !== 4) return alert("Entrez un code à 4 chiffres valide.");
-  peer = new Peer();
-  netStatus.textContent = "Connexion...";
-  peer.on('open', () => {
-    conn = peer.connect(`foot-game-${roomId}`);
-    isHost = false; myPlayerId = 2;
-    setupNetworkEvents();
+if (btnJoinRoom) {
+  btnJoinRoom.addEventListener("click", () => {
+    const roomId = roomInput.value.trim();
+    if (roomId.length !== 4) return alert("Entrez un code à 4 chiffres valide.");
+    peer = new Peer();
+    netStatus.textContent = "Connexion...";
+    peer.on('open', () => {
+      conn = peer.connect(`foot-game-${roomId}`);
+      isHost = false; myPlayerId = 2;
+      setupNetworkEvents();
+    });
   });
-});
+}
 
 function setupNetworkEvents() {
   conn.on('open', () => netStatus.textContent = `🟢 Connecté au match !`);
   conn.on('data', (data) => {
     if (data.type === 'STATE_UPDATE' && !isHost) {
-      players.forEach((p, i) => { if(data.players[i]) { p.x = data.players[i].x; p.y = data.players[i].y; } });
+      p1.x = data.p1.x; p1.y = data.p1.y;
+      p2.x = data.p2.x; p2.y = data.p2.y;
       ball.x = data.ball.x; ball.y = data.ball.y;
       score1 = data.score1; score2 = data.score2;
       score1El.textContent = score1; score2El.textContent = score2;
@@ -159,7 +162,8 @@ function sendNetworkData() {
   if (isHost) {
     conn.send({
       type: 'STATE_UPDATE',
-      players: players.map(p => ({ x: p.x, y: p.y })),
+      p1: { x: p1.x, y: p1.y },
+      p2: { x: p2.x, y: p2.y },
       ball: { x: ball.x, y: ball.y },
       score1: score1, score2: score2,
       isCountdown: isCountdown, countdownValue: countdownValue
@@ -169,7 +173,7 @@ function sendNetworkData() {
       type: 'INPUT_UPDATE',
       up: keys["ArrowUp"] || keys["KeyW"], down: keys["ArrowDown"] || keys["KeyS"],
       left: keys["ArrowLeft"] || keys["KeyA"], right: keys["ArrowRight"] || keys["KeyD"],
-      shoot: keys["Space"] || keys["KeyF"]
+      shoot: keys["Space"]
     });
   }
 }
@@ -189,117 +193,35 @@ function bindBtn(id, keyCode) {
 
 bindBtn("btnUp", "ArrowUp"); bindBtn("btnDown", "ArrowDown");
 bindBtn("btnLeft", "ArrowLeft"); bindBtn("btnRight", "ArrowRight");
-bindBtn("btnShoot", "Space"); bindBtn("btnPass", "KeyP");
+bindBtn("btnShoot", "Space");
 
-// --- MOTEUR DE JEU ET ÉQUIPES ---
-let players = [];
+// --- MOTEUR DE JEU 1 CONTRE 1 ---
+const p1 = { x: 100, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
+const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 4, num: "IA" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
+
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-function initMatch() {
-  const format = parseInt(teamFormatSelect.value);
-  const humanCount = parseInt(humanCountSelect.value);
-  players = [];
-  let currentHuman = 1;
+// --- IA IDENTIQUE À LA VERSION D'ORIGINE ---
+function updateAI() {
+  const targetX = ball.x > canvas.width / 2 ? ball.x : canvas.width - 150;
+  const targetY = ball.y;
 
-  for (let team = 1; team <= 2; team++) {
-    for (let i = 0; i < format; i++) {
-      const isHuman = currentHuman <= humanCount;
-      const teamColor = team === 1 ? "#00d2ff" : "#ff416c";
-      const role = (i === 0) ? "DEFENDER" : "ATTACKER";
+  if (p2.x < targetX) p2.x += p2.speed;
+  if (p2.x > targetX) p2.x -= p2.speed;
+  if (p2.y < targetY) p2.y += p2.speed;
+  if (p2.y > targetY) p2.y -= p2.speed;
 
-      players.push({
-        id: players.length + 1,
-        team: team,
-        role: role,
-        isHuman: isHuman,
-        humanId: isHuman ? currentHuman : null,
-        x: 0, y: 0,
-        radius: 18,
-        color: teamColor,
-        speed: 4.5, // Vitesse strictement identique pour IA et Humains
-        num: isHuman ? `J${currentHuman}` : `IA${i+1}`,
-        passCooldown: 0
-      });
-
-      if (isHuman) currentHuman++;
-    }
-  }
-}
-
-// --- INTELLIGENCE ARTIFICIELLE NORMALE ET FLUIDE ---
-function updateAI(p) {
-  if (p.passCooldown > 0) p.passCooldown--;
-
-  const goalTargetX = p.team === 1 ? canvas.width : 0;
-  const distToBall = Math.hypot(ball.x - p.x, ball.y - p.y);
-
-  // Déterminer quel coéquipier est le plus proche du ballon
-  let closestTeammate = players
-    .filter(other => other.team === p.team)
-    .reduce((prev, curr) => {
-      let dPrev = Math.hypot(ball.x - prev.x, ball.y - prev.y);
-      let dCurr = Math.hypot(ball.x - curr.x, ball.y - curr.y);
-      return dCurr < dPrev ? curr : prev;
-    });
-
-  const isClosest = (closestTeammate.id === p.id);
-  let targetX = p.x, targetY = p.y;
-
-  if (p.role === "DEFENDER") {
-    // Le défenseur protège la cage et n'avance que si le ballon entre dans sa zone
-    targetX = p.team === 1 ? 80 : canvas.width - 80;
-    targetY = Math.max(goalY + 20, Math.min(goalY + goalHeight - 20, ball.y));
-
-    if ((p.team === 1 && ball.x < canvas.width * 0.4) || (p.team === 2 && ball.x > canvas.width * 0.6)) {
-      if (isClosest) {
-        targetX = ball.x;
-        targetY = ball.y;
-      }
-    }
-  } else {
-    // Attaquants : le plus proche va au ballon, l'autre se positionne en soutien
-    if (isClosest) {
-      targetX = ball.x;
-      targetY = ball.y;
-    } else {
-      targetX = p.team === 1 ? ball.x - 80 : ball.x + 80;
-      targetY = ball.y + (p.id % 2 === 0 ? 70 : -70);
-    }
-  }
-
-  // Déplacement direct et fluide vers l'objectif
-  let dx = targetX - p.x, dy = targetY - p.y;
+  // Tir de l'IA quand elle est proche de la balle
+  let dx = ball.x - p2.x;
+  let dy = ball.y - p2.y;
   let dist = Math.hypot(dx, dy);
-  if (dist > 2) {
-    p.x += (dx / dist) * p.speed;
-    p.y += (dy / dist) * p.speed;
-  }
 
-  // --- COMPORTEMENT AVEC LE BALLON ---
-  if (distToBall < p.radius + ball.radius + 6) {
-    // Vérifier s'il y a un coéquipier bien placé en avant
-    let teammate = players.find(other => 
-      other.team === p.team && 
-      other.id !== p.id && 
-      ((p.team === 1 && other.x > p.x) || (p.team === 2 && other.x < p.x))
-    );
-
-    // Passe vers le coéquipier si disponible
-    if (teammate && p.passCooldown === 0 && Math.random() < 0.4) {
-      let angle = Math.atan2(teammate.y - ball.y, teammate.x - ball.x);
-      ball.vx = Math.cos(angle) * 12;
-      ball.vy = Math.sin(angle) * 12;
-      p.passCooldown = 40;
-      playKickSound();
-      return;
-    }
-
-    // Tir direct vers le but adverse
-    let shootAngle = Math.atan2((canvas.height / 2) - ball.y, goalTargetX - ball.x);
-    ball.vx = Math.cos(shootAngle) * 13;
-    ball.vy = Math.sin(shootAngle) * 13;
+  if (dist < p2.radius + ball.radius + 5) {
+    let angle = Math.atan2(dy, dx);
+    ball.vx = Math.cos(angle) * 12;
+    ball.vy = Math.sin(angle) * 12;
     playKickSound();
   }
 }
@@ -346,37 +268,27 @@ function startTimer() {
 }
 
 function startRound2() {
-  round = 2; timeLeft = Math.floor(totalTime / 2);
+  round = 2;
+  timeLeft = Math.floor(totalTime / 2);
   resetPositions(2);
   startCountdown();
 }
 
 function endGame() {
-  isGameOver = true; clearInterval(timerInterval);
+  isGameOver = true;
+  clearInterval(timerInterval);
   let reward = "";
   if (score1 > score2) reward = "🥇 RÉCOMPENSE : COUPE D'OR DES CHAMPIONS ! 🏆";
   else if (score2 > score1) reward = "🥉 RÉCOMPENSE : MÉDAILLE DE BRONZE !";
   else reward = "🥈 RÉCOMPENSE : MÉDAILLE D'ARGENT (Match Nul) !";
 
   playGoalSound();
-  alert(`FIN DU MATCH !\n\nScore : Bleus ${score1} - ${score2} Rouges\n\n${reward}`);
+  alert(`FIN DU MATCH !\n\nScore : Vous ${score1} - ${score2} IA\n\n${reward}`);
 }
 
 function resetPositions(starter = 1) {
-  const format = parseInt(teamFormatSelect.value);
-  let index1 = 0, index2 = 0;
-
-  players.forEach(p => {
-    if (p.team === 1) {
-      p.x = 130 + (index1 * 50);
-      p.y = 120 + (index1 * (260 / Math.max(1, format - 1)));
-      index1++;
-    } else {
-      p.x = canvas.width - 130 - (index2 * 50);
-      p.y = 120 + (index2 * (260 / Math.max(1, format - 1)));
-      index2++;
-    }
-  });
+  p1.x = 120; p1.y = canvas.height / 2;
+  p2.x = canvas.width - 120; p2.y = canvas.height / 2;
 
   ball.vx = 0; ball.vy = 0;
   ball.x = starter === 1 ? 420 : 380;
@@ -384,13 +296,12 @@ function resetPositions(starter = 1) {
 }
 
 function resetGame() {
-  totalTime = parseInt(gameDurationSelect.value);
+  if (gameDurationSelect) totalTime = parseInt(gameDurationSelect.value);
   timeLeft = Math.floor(totalTime / 2);
   score1 = 0; score2 = 0; round = 1;
   isGameOver = false; isPaused = false;
   score1El.textContent = "0"; score2El.textContent = "0";
-  
-  initMatch();
+
   resetPositions(1);
   startCountdown(() => { startTimer(); });
   startBackgroundMusic();
@@ -400,63 +311,60 @@ function resetGame() {
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
-  players.forEach(p => {
-    if (p.isHuman) {
-      if (p.humanId === 1) {
-        if ((keys["ArrowUp"] || keys["KeyW"]) && p.y - p.radius > 0) p.y -= p.speed;
-        if ((keys["ArrowDown"] || keys["KeyS"]) && p.y + p.radius < canvas.height) p.y += p.speed;
-        if ((keys["ArrowLeft"] || keys["KeyA"]) && p.x - p.radius > 0) p.x -= p.speed;
-        if ((keys["ArrowRight"] || keys["KeyD"]) && p.x + p.radius < canvas.width) p.x += p.speed;
+  // Contrôles du joueur 1 (Clavier / Mobile)
+  if ((keys["ArrowUp"] || keys["KeyW"]) && p1.y - p1.radius > 0) p1.y -= p1.speed;
+  if ((keys["ArrowDown"] || keys["KeyS"]) && p1.y + p1.radius < canvas.height) p1.y += p1.speed;
+  if ((keys["ArrowLeft"] || keys["KeyA"]) && p1.x - p1.radius > 0) p1.x -= p1.speed;
+  if ((keys["ArrowRight"] || keys["KeyD"]) && p1.x + p1.radius < canvas.width) p1.x += p1.speed;
 
-        handleAction(p, "Space", "KeyP");
-      }
-    } else {
-      updateAI(p);
-    }
+  // Action de frappe du joueur 1
+  handleAction(p1, "Space");
 
-    pushBall(p);
-  });
+  // Déplacement et logique de l'IA (Joueur 2)
+  if (conn && conn.open && !isHost) {
+    if (keys["RemoteUp"] && p2.y - p2.radius > 0) p2.y -= p2.speed;
+    if (keys["RemoteDown"] && p2.y + p2.radius < canvas.height) p2.y += p2.speed;
+    if (keys["RemoteLeft"] && p2.x - p2.radius > 0) p2.x -= p2.speed;
+    if (keys["RemoteRight"] && p2.x + p2.radius < canvas.width) p2.x += p2.speed;
+  } else {
+    updateAI();
+  }
 
+  pushBall(p1);
+  pushBall(p2);
+
+  // Mouvement et friction du ballon
   ball.x += ball.vx; ball.y += ball.vy;
   ball.vx *= ball.friction; ball.vy *= ball.friction;
 
   // Rebond haut / bas
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) ball.vy *= -1;
-  
-  // Rebond cage / mur
+
+  // Rebond hors des cages (murs latéraux)
   if (ball.y < goalY || ball.y > goalY + goalHeight) {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // Buts
-  if (ball.x < 0) { 
-    score2++; score2El.textContent = score2; 
-    playGoalSound(); resetPositions(2); startCountdown(); 
-  }
-  else if (ball.x > canvas.width) { 
-    score1++; score1El.textContent = score1; 
-    playGoalSound(); resetPositions(1); startCountdown(); 
+  // Marquer un BUT
+  if (ball.x < 0) {
+    score2++; score2El.textContent = score2;
+    playGoalSound(); resetPositions(2); startCountdown();
+  } else if (ball.x > canvas.width) {
+    score1++; score1El.textContent = score1;
+    playGoalSound(); resetPositions(1); startCountdown();
   }
 
   sendNetworkData();
 }
 
-function handleAction(p, shootKey, passKey) {
+function handleAction(p, shootKey) {
   let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.hypot(dx, dy);
-  if (dist < p.radius + ball.radius + 15) {
+  if (dist < p.radius + ball.radius + 12) {
     if (keys[shootKey]) {
       let angle = Math.atan2(dy, dx);
-      ball.vx = Math.cos(angle) * 15; ball.vy = Math.sin(angle) * 15;
+      ball.vx = Math.cos(angle) * 15;
+      ball.vy = Math.sin(angle) * 15;
       playKickSound();
-    }
-    if (keys[passKey]) {
-      let teammate = players.find(other => other.team === p.team && other.id !== p.id);
-      if (teammate) {
-        let passAngle = Math.atan2(teammate.y - ball.y, teammate.x - ball.x);
-        ball.vx = Math.cos(passAngle) * 12; ball.vy = Math.sin(passAngle) * 12;
-        playKickSound();
-        keys[passKey] = false;
-      }
     }
   }
 }
@@ -466,15 +374,17 @@ function pushBall(p) {
   if (dist < p.radius + ball.radius) {
     let angle = Math.atan2(dy, dx);
     let overlap = (p.radius + ball.radius) - dist;
-    ball.x += Math.cos(angle) * overlap; ball.y += Math.sin(angle) * overlap;
-    ball.vx = Math.cos(angle) * 4; ball.vy = Math.sin(angle) * 4;
+    ball.x += Math.cos(angle) * overlap;
+    ball.y += Math.sin(angle) * overlap;
+    ball.vx = Math.cos(angle) * 4;
+    ball.vy = Math.sin(angle) * 4;
   }
 }
 
-// --- AFFICHAGE & RENDU CANVA ---
+// --- AFFICHAGE SUR LE CANVAS ---
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
+
   // Terrain
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
@@ -482,21 +392,22 @@ function draw() {
 
   // Cages
   ctx.fillStyle = "#fff";
-  ctx.fillRect(0, goalY, 8, goalHeight); ctx.fillRect(canvas.width - 8, goalY, 8, goalHeight);
+  ctx.fillRect(0, goalY, 8, goalHeight);
+  ctx.fillRect(canvas.width - 8, goalY, 8, goalHeight);
 
-  // Joueurs
-  players.forEach(p => {
+  // Joueur 1 & Joueur 2 (IA)
+  [p1, p2].forEach(p => {
     ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fillStyle = p.color; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif";
-    ctx.fillText(p.num, p.x - 7, p.y + 4);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif";
+    ctx.fillText(p.num, p.x - 6, p.y + 4);
   });
 
   // Ballon
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
-  // OVERLAY DU TOP DÉPART
+  // Overlay du Compte à rebours / Top départ
   if (isCountdown) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -505,7 +416,7 @@ function draw() {
     ctx.fillStyle = "#ffeb3b";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    
+
     let text = countdownValue > 0 ? countdownValue : "GO !";
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
     ctx.textAlign = "left";
@@ -522,9 +433,7 @@ btnPause.addEventListener("click", () => {
 });
 
 btnReset.addEventListener("click", resetGame);
-teamFormatSelect.addEventListener("change", resetGame);
-humanCountSelect.addEventListener("change", resetGame);
-gameDurationSelect.addEventListener("change", resetGame);
+if (gameDurationSelect) gameDurationSelect.addEventListener("change", resetGame);
 
 btnMusic.addEventListener("click", () => {
   musicEnabled = !musicEnabled;

@@ -1,152 +1,72 @@
-* {
-  box-sizing: border-box;
-  user-select: none;
-  -webkit-user-select: none;
-}
+* { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
 
 body {
   background-color: #121212;
-  color: #ffffff;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  margin: 0; padding: 10px;
+  display: flex; justify-content: center; align-items: center;
   min-height: 100vh;
-  touch-action: manipulation;
 }
 
 .game-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 800px;
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; max-width: 850px;
 }
 
-/* Tableau d'affichage */
+.setup-bar {
+  width: 100%; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px;
+  background: #1a1a1a; padding: 8px 12px; border-radius: 8px 8px 0 0; font-size: 0.85rem;
+}
+
+.setup-bar select, .setup-bar button {
+  background: #333; color: white; border: 1px solid #555; padding: 4px 6px; border-radius: 4px;
+}
+
 .scoreboard {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #222;
-  border-radius: 12px 12px 0 0;
-  padding: 12px 20px;
-  border-bottom: 3px solid #444;
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  background: #222; padding: 10px 20px; border-bottom: 3px solid #444;
 }
 
-.team {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+.team { display: flex; align-items: center; gap: 10px; }
+.team-1 .team-name { color: #00d2ff; font-weight: bold; }
+.team-2 .team-name { color: #ff416c; font-weight: bold; }
+.score { font-size: 1.8rem; font-weight: 900; background: #111; padding: 2px 12px; border-radius: 6px; }
 
-.team-name {
-  font-weight: bold;
-  font-size: 1rem;
-}
+#timer { font-size: 1.5rem; font-weight: bold; color: #ffeb3b; }
+.status { display: block; font-size: 0.75rem; color: #4caf50; text-align: center; font-weight: bold; }
 
-.team-1 .team-name { color: #00d2ff; }
-.team-2 .team-name { color: #ff416c; }
-
-.score {
-  font-size: 2rem;
-  font-weight: 900;
-  background: #111;
-  padding: 4px 15px;
-  border-radius: 8px;
-}
-
-.timer-container {
-  text-align: center;
-}
-
-#timer {
-  display: block;
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #ffeb3b;
-}
-
-.status {
-  font-size: 0.75rem;
-  color: #4caf50;
-  font-weight: bold;
-}
-
-/* Terrain de jeu */
 canvas {
-  background-color: #2e8b57;
-  border-left: 3px solid #fff;
-  border-right: 3px solid #fff;
-  width: 100%;
-  height: auto;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  background-color: #2e8b57; width: 100%; height: auto;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
 }
 
-/* Panneau de commandes tactiles */
-.touch-controls {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #1e1e1e;
-  padding: 15px;
-  border-radius: 0 0 12px 12px;
+.controls-wrapper {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  background: #1e1e1e; padding: 10px; border-radius: 0 0 12px 12px;
 }
+
+.player-touch-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+
+.p-label { font-size: 0.8rem; font-weight: bold; }
 
 .d-pad {
-  display: grid;
-  grid-template-columns: repeat(3, 45px);
-  grid-template-rows: repeat(3, 45px);
-  gap: 4px;
+  display: grid; grid-template-columns: repeat(3, 35px); grid-template-rows: repeat(3, 35px); gap: 2px;
 }
 
-.touch-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid #fff;
-  color: white;
-  font-size: 1.1rem;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  touch-action: none;
-  cursor: pointer;
+.t-btn {
+  background: rgba(255, 255, 255, 0.15); border: 1px solid #fff; color: white;
+  border-radius: 6px; display: flex; justify-content: center; align-items: center;
+  touch-action: none; cursor: pointer; font-size: 0.8rem;
 }
 
-.touch-btn:active {
-  background: rgba(255, 255, 255, 0.5);
-}
+.t-btn:active { background: rgba(255, 255, 255, 0.4); }
 
-.btn-shoot {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: #ff416c;
-  font-size: 0.9rem;
-  font-weight: bold;
-  border: 3px solid #fff;
-}
+.act-btns { display: flex; gap: 5px; }
+.btn-pass { width: 50px; height: 35px; background: #2196f3; font-weight: bold; }
+.btn-shoot { width: 50px; height: 35px; background: #ff416c; font-weight: bold; }
 
-.center-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-button {
-  background: #444;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-button:hover {
-  background: #666;
-}
+.center-actions { display: flex; flex-direction: column; gap: 8px; }
+button { background: #444; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; }

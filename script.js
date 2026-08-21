@@ -26,7 +26,7 @@ let musicEnabled = true;
 
 const keys = {};
 
-// --- CODE SECRET DÉVELOPPEUR INVISIBLE (Haut - Haut - Bas) ---
+// --- CODE SECRET DÉVELOPPEUR INVISIBLE ---
 let devCodeSequence = [];
 const SECRET_CODE = ["ArrowUp", "ArrowUp", "ArrowDown"];
 
@@ -51,7 +51,7 @@ function triggerDevGoal() {
   }
 }
 
-// --- AUDIO & MOTEUR SONORE ---
+// --- AUDIO ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playTone(freq, duration, type = "sine") {
@@ -105,7 +105,7 @@ function startBackgroundMusic() {
   }, 300);
 }
 
-// --- MULTIJOUEUR RÉSEAU (PEERJS) ---
+// --- MULTIJOUEUR PEERJS ---
 let peer = null, conn = null, isHost = true, myPlayerId = 1;
 
 if (btnCreateRoom) {
@@ -178,7 +178,7 @@ function sendNetworkData() {
   }
 }
 
-// --- CONTRÔLES TACTILES & CLAVIER ---
+// --- CONTRÔLES ---
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
@@ -195,7 +195,7 @@ bindBtn("btnUp", "ArrowUp"); bindBtn("btnDown", "ArrowDown");
 bindBtn("btnLeft", "ArrowLeft"); bindBtn("btnRight", "ArrowRight");
 bindBtn("btnShoot", "Space");
 
-// --- MOTEUR DE JEU 1 CONTRE 1 ---
+// --- MOTEUR DE JEU ---
 const p1 = { x: 100, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
 const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 4, num: "IA" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
@@ -203,9 +203,7 @@ const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, frict
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// --- IA TOTALE : SE DÉPLACE DANS TOUT LE TERRAIN ---
 function updateAI() {
-  // L'IA cible directement la position exacte du ballon sur TOUT le terrain
   const targetX = ball.x;
   const targetY = ball.y;
 
@@ -214,11 +212,9 @@ function updateAI() {
   if (p2.y < targetY) p2.y += p2.speed;
   if (p2.y > targetY) p2.y -= p2.speed;
 
-  // Empêcher l'IA de sortir des limites du terrain
   p2.x = Math.max(p2.radius, Math.min(canvas.width - p2.radius, p2.x));
   p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y));
 
-  // Tir de l'IA quand elle est proche de la balle
   let dx = ball.x - p2.x;
   let dy = ball.y - p2.y;
   let dist = Math.hypot(dx, dy);
@@ -231,7 +227,6 @@ function updateAI() {
   }
 }
 
-// --- DÉPART ET COMPTE À REBOURS ---
 function startCountdown(callback) {
   isCountdown = true;
   countdownValue = 3;
@@ -312,20 +307,16 @@ function resetGame() {
   startBackgroundMusic();
 }
 
-// --- BOUCLE DE JEU & PHYSIQUE ---
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
-  // Contrôles du joueur 1 (Clavier / Mobile)
   if ((keys["ArrowUp"] || keys["KeyW"]) && p1.y - p1.radius > 0) p1.y -= p1.speed;
   if ((keys["ArrowDown"] || keys["KeyS"]) && p1.y + p1.radius < canvas.height) p1.y += p1.speed;
   if ((keys["ArrowLeft"] || keys["KeyA"]) && p1.x - p1.radius > 0) p1.x -= p1.speed;
   if ((keys["ArrowRight"] || keys["KeyD"]) && p1.x + p1.radius < canvas.width) p1.x += p1.speed;
 
-  // Action de frappe du joueur 1
   handleAction(p1, "Space");
 
-  // Déplacement et logique de l'IA (Joueur 2)
   if (conn && conn.open && !isHost) {
     if (keys["RemoteUp"] && p2.y - p2.radius > 0) p2.y -= p2.speed;
     if (keys["RemoteDown"] && p2.y + p2.radius < canvas.height) p2.y += p2.speed;
@@ -338,19 +329,15 @@ function update() {
   pushBall(p1);
   pushBall(p2);
 
-  // Mouvement et friction du ballon
   ball.x += ball.vx; ball.y += ball.vy;
   ball.vx *= ball.friction; ball.vy *= ball.friction;
 
-  // Rebond haut / bas
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) ball.vy *= -1;
 
-  // Rebond hors des cages (murs latéraux)
   if (ball.y < goalY || ball.y > goalY + goalHeight) {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // Marquer un BUT
   if (ball.x < 0) {
     score2++; score2El.textContent = score2;
     playGoalSound(); resetPositions(2); startCountdown();
@@ -386,21 +373,17 @@ function pushBall(p) {
   }
 }
 
-// --- AFFICHAGE SUR LE CANVAS ---
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Terrain
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
   ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2); ctx.stroke();
 
-  // Cages
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, goalY, 8, goalHeight);
   ctx.fillRect(canvas.width - 8, goalY, 8, goalHeight);
 
-  // Joueur 1 & Joueur 2 (IA)
   [p1, p2].forEach(p => {
     ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fillStyle = p.color; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.stroke();
@@ -408,11 +391,9 @@ function draw() {
     ctx.fillText(p.num, p.x - 6, p.y + 4);
   });
 
-  // Ballon
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
-  // Overlay du Compte à rebours / Top départ
   if (isCountdown) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);

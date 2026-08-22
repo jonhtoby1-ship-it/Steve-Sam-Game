@@ -2,8 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Jeu de Football 2D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Soccer 2D</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <!-- TERRAIN DE JEU ET JOYSTICKS (DESSINÉS EN CANVAS) -->
+    <!-- TERRAIN DE JEU ET JOYSTICKS (CANVAS) -->
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
     <!-- MENU PRINCIPAL -->
@@ -67,13 +67,13 @@
         <div class="manual-content">
           <h3>🎮 Commandes</h3>
           <ul>
-            <li><b>Joysticks virtuels :</b> Visibles à l'écran en bas à gauche (J1) et bas à droite (J2). Cliquez/touchez pour diriger.</li>
-            <li><b>Clavier PC :</b> ZQSD (J1) et Flèches Directionnelles (J2).</li>
+            <li><b>Joysticks virtuels :</b> Bleu à gauche (J1) et Rouge à droite (J2 - Mode 2P). Cliquez/touchez pour diriger.</li>
+            <li><b>Clavier PC :</b> ZQSD / WASD (J1) et Flèches Directionnelles (J2).</li>
           </ul>
           <h3>📜 Règles</h3>
           <ul>
             <li>Chaque joueur conserve son camp.</li>
-            <li>Marquez plus de buts que votre adversaire avant la fin du temps !</li>
+            <li>Marquez plus de buts que votre adversaire avant la fin du chrono !</li>
           </ul>
         </div>
         <button id="btnCloseManual" class="btn-primary">Fermer</button>
@@ -81,6 +81,6 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>

@@ -1,94 +1,124 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Jeu de Football 1v1</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Jeu de Football 2D</title>
+  <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
-  <div class="game-container">
-    
-    <!-- Configuration -->
-    <div class="setup-bar">
-      <div>
-        <label for="gameDuration" style="font-size: 0.8rem;">Durée :</label>
-        <select id="gameDuration">
-          <option value="60">1 Min</option>
-          <option value="180" selected>3 Min</option>
-          <option value="300">5 Min</option>
+  <!-- ÉCRAN D'ACCUEIL / MENU PRINCIPAL -->
+  <div id="main-menu" class="overlay">
+    <div class="menu-box">
+      <h1>⚽ FOOTBALL 2D</h1>
+      
+      <div class="menu-actions">
+        <button id="btnStartGame" class="btn-primary">▶ Jouer</button>
+        <button id="btnOpenSettings" class="btn-secondary">⚙️ Paramètres & Modes</button>
+        <button id="btnOpenManual" class="btn-secondary">📖 Manuel & Règles</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANNEAU PARAMÈTRES & MULTIJOUEUR -->
+  <div id="settings-modal" class="overlay hidden">
+    <div class="menu-box">
+      <h2>⚙️ Paramètres & Configuration</h2>
+      
+      <div class="setting-item">
+        <label>Mode de Jeu :</label>
+        <select id="gameModeSelect">
+          <option value="AI">1 Joueur vs IA</option>
+          <option value="LOCAL_2P">2 Joueurs (Même écran)</option>
+          <option value="ONLINE">Multijoueur en Ligne</option>
         </select>
       </div>
 
-      <div>
-        <button id="btnPause">⏸️ Pause</button>
-        <button id="btnReset">🔄 Recommencer</button>
-        <button id="btnMusic">🎵 Musique: ON</button>
+      <div class="setting-item">
+        <label>Durée du Match :</label>
+        <select id="gameDuration">
+          <option value="60">1 Minute</option>
+          <option value="180" selected>3 Minutes</option>
+          <option value="300">5 Minutes</option>
+        </select>
+      </div>
+
+      <!-- Section Multijoueur en ligne -->
+      <div id="online-controls" class="hidden border-box">
+        <h3>🌐 Multijoueur En Ligne</h3>
+        <button id="btnCreateRoom">Créer un Salon</button>
+        <div class="join-row">
+          <input type="text" id="roomInput" placeholder="Code à 4 chiffres" maxlength="4">
+          <button id="btnJoinRoom">Rejoindre</button>
+        </div>
+        <p id="networkStatus">Statut : Non connecté</p>
+      </div>
+
+      <button id="btnCloseSettings" class="btn-primary">Valider</button>
+    </div>
+  </div>
+
+  <!-- PANNEAU MANUEL & RÈGLES -->
+  <div id="manual-modal" class="overlay hidden">
+    <div class="menu-box scrollable">
+      <h2>📖 Manuel d'Utilisation</h2>
+      
+      <div class="manual-content">
+        <h3>🎮 Modes de Jeu</h3>
+        <ul>
+          <li><b>1 Joueur vs IA :</b> Défiez l'IA. Chacun reste dans sa moitié de terrain. L'IA ne peut marquer que 3 buts maximum.</li>
+          <li><b>2 Joueurs (Même écran) :</b> Le joueur 1 utilise le joystick gauche, le joueur 2 utilise le joystick droit.</li>
+          <li><b>Multijoueur en Ligne :</b> Créez un salon ou rejoignez un ami via un code à 4 chiffres.</li>
+        </ul>
+
+        <h3>📜 Règles du Jeu</h3>
+        <ul>
+          <li><b>Délimitation :</b> Chaque joueur reste strictement dans sa moitié de terrain.</li>
+          <li><b>Contrôle & Tir :</b> Avancez vers le ballon pour le pousser. La puissance dépend de votre vitesse au contact.</li>
+          <li><b>Compte à rebours :</b> Le top départ (3, 2, 1, GO) est synchronisé.</li>
+        </ul>
+      </div>
+
+      <button id="btnCloseManual" class="btn-primary">Fermer</button>
+    </div>
+  </div>
+
+  <!-- INTERFACE DE JEU -->
+  <div id="game-container">
+    <div id="hud">
+      <div class="score-board">
+        <span id="score1" class="score p1-color">0</span>
+        <span class="vs">-</span>
+        <span id="score2" class="score p2-color">0</span>
+      </div>
+      <div id="timer">01:30</div>
+      <div id="game-status">PRET ?</div>
+      <div class="hud-buttons">
+        <button id="btnPause">⏸️</button>
+        <button id="btnReset">🔄</button>
+        <button id="btnMusic">🎵</button>
+        <button id="btnHome">🏠</button>
       </div>
     </div>
 
-    <!-- Multijoueur Réseau -->
-    <div class="network-panel">
-      <button id="btnCreateRoom" class="net-btn">Créer Salon</button>
-      <div class="join-box">
-        <input type="text" id="roomInput" placeholder="Code" maxlength="4" />
-        <button id="btnJoinRoom" class="net-btn">Rejoindre</button>
-      </div>
-      <div id="networkStatus" class="net-status">Mode Solo (vs J2)</div>
-    </div>
-
-    <!-- Tableau d'affichage -->
-    <div class="scoreboard">
-      <div class="team team-1">
-        <span class="team-name">J1</span>
-        <span class="score" id="score1">0</span>
-      </div>
-
-      <div style="text-align: center;">
-        <div id="timer">01:30</div>
-        <span class="status" id="game-status">PRÊT ?</span>
-      </div>
-
-      <div class="team team-2">
-        <span class="score" id="score2">0</span>
-        <span class="team-name">J2</span>
-      </div>
-    </div>
-
-    <!-- Canvas -->
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <!-- Contrôles Tactiles -->
-    <div class="controls-wrapper">
-      <div class="player-touch-zone">
-        <div class="controls-layout">
-          
-          <!-- Croix Directionnelle -->
-          <div class="d-pad">
-            <div></div>
-            <button class="t-btn" id="btnUp">⬆️</button>
-            <div></div>
+    <!-- CONTROLES TACTILES JOYSTICKS -->
+    <div id="controls-container">
+      <div id="joystick-left-zone" class="joystick-zone">
+        <div id="joystick-left-base" class="joy-base">
+          <div id="joystick-left-stick" class="joy-stick"></div>
+        </div>
+      </div>
 
-            <button class="t-btn" id="btnLeft">⬅️</button>
-            <div></div>
-            <button class="t-btn" id="btnRight">➡️</button>
-
-            <div></div>
-            <button class="t-btn" id="btnDown">⬇️</button>
-            <div></div>
-          </div>
-
-          <!-- Bouton de Tir -->
-          <div class="act-btns">
-            <button class="t-btn btn-shoot" id="btnShoot">TIRER ⚽</button>
-          </div>
-
+      <div id="joystick-right-zone" class="joystick-zone">
+        <div id="joystick-right-base" class="joy-base p2-base">
+          <div id="joystick-right-stick" class="joy-stick"></div>
         </div>
       </div>
     </div>
-
   </div>
 
   <script src="script.js"></script>

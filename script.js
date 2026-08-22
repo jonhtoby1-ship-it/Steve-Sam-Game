@@ -29,7 +29,7 @@ window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
 // ==========================================
-// SYNTHÉTISEUR AUDIO (CORRIGÉ & DÉBLOQUÉ)
+// SYNTHÉTISEUR AUDIO (DÉBLOQUÉ)
 // ==========================================
 let audioCtx = null;
 
@@ -45,7 +45,6 @@ function initAudio() {
   }
 }
 
-// Déblocage automatique du son au premier clic/touche
 ['click', 'touchstart', 'keydown'].forEach(evt => {
   window.addEventListener(evt, initAudio, { once: false });
 });
@@ -66,7 +65,7 @@ function playTone(freq, duration, type = "sine") {
     osc.start();
     osc.stop(audioCtx.currentTime + duration);
   } catch (e) {
-    console.log("Erreur audio :", e);
+    console.log("Audio non disponible :", e);
   }
 }
 
@@ -95,7 +94,7 @@ function handlePointer(clientX, clientY, isDown, touchId = null) {
   const y = (clientY - rect.top) * scaleY;
 
   [joy1, joy2].forEach((j, idx) => {
-    // Si mode IA, désactiver le Joystick 2
+    // Si mode IA, le Joystick 2 est désactivé
     if (idx === 1 && currentGameMode === "AI") return;
 
     if (isDown) {
@@ -196,7 +195,6 @@ function updateAI() {
 function startMatchSequence() {
   initAudio();
 
-  // Lecture forcée des modes sélectionnés
   if (gameModeSelect) currentGameMode = gameModeSelect.value;
 
   if (mainMenu) mainMenu.classList.add("hidden");
@@ -283,7 +281,7 @@ function update() {
 
   updatePlayerNoise();
 
-  // Déplacement J1 (Tactile / Souris / Clavier ZQSD)
+  // Déplacement J1 (Tactile / Souris / Clavier)
   let move1X = joy1.dirX * p1.speed;
   let move1Y = joy1.dirY * p1.speed;
   if (keys["KeyW"] || keys["KeyZ"]) move1Y = -p1.speed;

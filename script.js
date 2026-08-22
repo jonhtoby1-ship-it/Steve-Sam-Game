@@ -1,12 +1,13 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// ÉLÉMENTS UI
 const score1El = document.getElementById("score1");
 const score2El = document.getElementById("score2");
 const timerEl = document.getElementById("timer");
 const statusEl = document.getElementById("game-status");
 
-// Écrans et Modaux
+// ÉCRANS ET MODAUX
 const mainMenu = document.getElementById("main-menu");
 const settingsModal = document.getElementById("settings-modal");
 const manualModal = document.getElementById("manual-modal");
@@ -14,6 +15,7 @@ const manualModal = document.getElementById("manual-modal");
 const gameModeSelect = document.getElementById("gameModeSelect");
 const gameDurationSelect = document.getElementById("gameDuration");
 
+// ÉTAT DU JEU
 let currentGameMode = "AI"; 
 let score1 = 0, score2 = 0, round = 1;
 let totalTime = 180, timeLeft = 90;
@@ -21,30 +23,60 @@ let isPaused = false, isGameOver = false;
 let isCountdown = false, countdownValue = 3;
 let timerInterval = null, countdownInterval = null;
 
-// Clavier
+// GESTION DU CLAVIER
 const keys = {};
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
-// SYNTHÉTISEUR SONORE
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playTone(freq, duration, type = "sine") {
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.start(); osc.stop(audioCtx.currentTime + duration);
+// ==========================================
+// SYNTHÉTISEUR AUDIO (CORRIGÉ & DÉBLOQUÉ)
+// ==========================================
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      audioCtx = new AudioContext();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
 }
 
-function playKickSound() { playTone(150, 0.1, "triangle"); }
-function playBeepSound(high = false) { playTone(high ? 800 : 400, 0.2, "sine"); }
-function playGoalSound() { playTone(300, 0.5, "sawtooth"); }
+// Déblocage automatique du son au premier clic/touche
+['click', 'touchstart', 'keydown'].forEach(evt => {
+  window.addEventListener(evt, initAudio, { once: false });
+});
 
-// JOUEURS ET BALLE
+function playTone(freq, duration, type = "sine") {
+  initAudio();
+  if (!audioCtx) return;
+
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (e) {
+    console.log("Erreur audio :", e);
+  }
+}
+
+function playKickSound() { playTone(120, 0.08, "triangle"); }
+function playBeepSound(high = false) { playTone(high ? 880 : 440, 0.15, "sine"); }
+function playGoalSound() { playTone(220, 0.6, "sawtooth"); }
+
+// ==========================================
+// JOUEURS, BALLE & JOYSTICKS
+// ==========================================
 const p1 = { x: 120, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
 const p2 = { x: 680, y: 250, radius: 18, color: "#ff416c", speed: 5, num: "J2" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
@@ -52,7 +84,6 @@ const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, frict
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// JOYSTICKS DESSINÉS DANS LE CANVAS
 const joy1 = { baseX: 80, baseY: 420, stickX: 80, stickY: 420, baseR: 45, stickR: 20, dirX: 0, dirY: 0, active: false, touchId: null };
 const joy2 = { baseX: 720, baseY: 420, stickX: 720, stickY: 420, baseR: 45, stickR: 20, dirX: 0, dirY: 0, active: false, touchId: null };
 
@@ -64,12 +95,12 @@ function handlePointer(clientX, clientY, isDown, touchId = null) {
   const y = (clientY - rect.top) * scaleY;
 
   [joy1, joy2].forEach((j, idx) => {
-    // Si c'est le mode IA, désactiver le Joystick 2
+    // Si mode IA, désactiver le Joystick 2
     if (idx === 1 && currentGameMode === "AI") return;
 
     if (isDown) {
       const dist = Math.hypot(x - j.baseX, y - j.baseY);
-      if (dist < j.baseR + 30 && (!j.active || j.touchId === touchId)) {
+      if (dist < j.baseR + 40 && (!j.active || j.touchId === touchId)) {
         j.active = true;
         j.touchId = touchId;
         let dx = x - j.baseX;
@@ -98,7 +129,7 @@ function handlePointer(clientX, clientY, isDown, touchId = null) {
   });
 }
 
-// Événements Souris & Tactiles directs sur le Canvas
+// Événements Tactiles & Souris
 canvas.addEventListener("mousedown", (e) => handlePointer(e.clientX, e.clientY, true));
 window.addEventListener("mousemove", (e) => { if (joy1.active || joy2.active) handlePointer(e.clientX, e.clientY, true); });
 window.addEventListener("mouseup", () => handlePointer(0, 0, false));
@@ -115,20 +146,19 @@ canvas.addEventListener("touchend", (e) => {
   for (let t of e.changedTouches) handlePointer(0, 0, false, t.identifier);
 });
 
-// BRUIT D'IMPRÉCISION PARTAGÉ
-let noiseTimer = 0, p1NoiseX = 0, p1NoiseY = 0, p2NoiseX = 0, p2NoiseY = 0;
+// ==========================================
+// INTELLIGENCE ARTIFICIELLE (MODE 1J)
+// ==========================================
+let noiseTimer = 0, p2NoiseX = 0, p2NoiseY = 0;
 function updatePlayerNoise() {
   noiseTimer++;
   if (noiseTimer > 15) {
     noiseTimer = 0;
-    p1NoiseX = (Math.random() - 0.5) * 12;
-    p1NoiseY = (Math.random() - 0.5) * 12;
     p2NoiseX = (Math.random() - 0.5) * 12;
     p2NoiseY = (Math.random() - 0.5) * 12;
   }
 }
 
-// IA HUMAINE
 function updateAI() {
   let targetX, targetY;
   if (ball.x >= canvas.width / 2) {
@@ -160,13 +190,20 @@ function updateAI() {
   }
 }
 
-// MATCH MANAGEMENT
+// ==========================================
+// DÉROULEMENT DU MATCH
+// ==========================================
 function startMatchSequence() {
+  initAudio();
+
+  // Lecture forcée des modes sélectionnés
+  if (gameModeSelect) currentGameMode = gameModeSelect.value;
+
   if (mainMenu) mainMenu.classList.add("hidden");
   if (settingsModal) settingsModal.classList.add("hidden");
   if (manualModal) manualModal.classList.add("hidden");
 
-  totalTime = parseInt(gameDurationSelect.value || 180);
+  totalTime = parseInt(gameDurationSelect ? gameDurationSelect.value : 180);
   timeLeft = Math.floor(totalTime / 2);
   score1 = 0; score2 = 0; round = 1;
   isGameOver = false; isPaused = false;
@@ -238,18 +275,20 @@ function resetPositions(starter = 1) {
   ball.y = canvas.height / 2;
 }
 
-// UPDATE LOGIC
+// ==========================================
+// BOUCLE DE MISE À JOUR ET DE RENDU
+// ==========================================
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
   updatePlayerNoise();
 
-  // Déplacement J1
+  // Déplacement J1 (Tactile / Souris / Clavier ZQSD)
   let move1X = joy1.dirX * p1.speed;
   let move1Y = joy1.dirY * p1.speed;
-  if (keys["KeyW"]) move1Y = -p1.speed;
+  if (keys["KeyW"] || keys["KeyZ"]) move1Y = -p1.speed;
   if (keys["KeyS"]) move1Y = p1.speed;
-  if (keys["KeyA"]) move1X = -p1.speed;
+  if (keys["KeyA"] || keys["KeyQ"]) move1X = -p1.speed;
   if (keys["KeyD"]) move1X = p1.speed;
 
   p1.x = Math.max(p1.radius, Math.min(canvas.width / 2 - p1.radius, p1.x + move1X));
@@ -266,7 +305,7 @@ function update() {
 
     p2.x = Math.max(canvas.width / 2 + p2.radius, Math.min(canvas.width - p2.radius, p2.x + move2X));
     p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y + move2Y));
-  } else if (currentGameMode === "AI") {
+  } else {
     updateAI();
   }
 
@@ -306,7 +345,6 @@ function pushBall(p) {
   }
 }
 
-// DESSIN DANS LE CANVAS
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -332,13 +370,12 @@ function draw() {
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
-  // DESSIN DES JOYSTICKS DIRECTEMENT EN CANVAS
+  // Joysticks
   const drawJoystick = (j, color) => {
-    // Base
     ctx.beginPath(); ctx.arc(j.baseX, j.baseY, j.baseR, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255, 255, 255, 0.15)"; ctx.fill();
     ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"; ctx.lineWidth = 3; ctx.stroke();
-    // Stick
+
     ctx.beginPath(); ctx.arc(j.stickX, j.stickY, j.stickR, 0, Math.PI * 2);
     ctx.fillStyle = color; ctx.fill();
     ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
@@ -349,7 +386,7 @@ function draw() {
     drawJoystick(joy2, "#ff416c");
   }
 
-  // Countdown Overlay
+  // Compte à rebours
   if (isCountdown) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -363,7 +400,9 @@ function draw() {
 
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
-// ÉVÉNEMENTS BOUTONS
+// ==========================================
+// ÉVÉNEMENTS ÉCRANS & BOUTONS
+// ==========================================
 const btnStart = document.getElementById("btnStartGame");
 if (btnStart) btnStart.addEventListener("click", startMatchSequence);
 
@@ -371,7 +410,10 @@ const btnOpenSet = document.getElementById("btnOpenSettings");
 if (btnOpenSet) btnOpenSet.addEventListener("click", () => settingsModal.classList.remove("hidden"));
 
 const btnCloseSet = document.getElementById("btnCloseSettings");
-if (btnCloseSet) btnCloseSet.addEventListener("click", () => settingsModal.classList.add("hidden"));
+if (btnCloseSet) btnCloseSet.addEventListener("click", () => {
+  if (gameModeSelect) currentGameMode = gameModeSelect.value;
+  settingsModal.classList.add("hidden");
+});
 
 const btnOpenMan = document.getElementById("btnOpenManual");
 if (btnOpenMan) btnOpenMan.addEventListener("click", () => manualModal.classList.remove("hidden"));
@@ -385,7 +427,11 @@ if (btnHome) btnHome.addEventListener("click", () => {
   mainMenu.classList.remove("hidden");
 });
 
-if (gameModeSelect) gameModeSelect.addEventListener("change", (e) => currentGameMode = e.target.value);
+if (gameModeSelect) {
+  gameModeSelect.addEventListener("change", (e) => {
+    currentGameMode = e.target.value;
+  });
+}
 
 const btnPause = document.getElementById("btnPause");
 if (btnPause) btnPause.addEventListener("click", () => {
@@ -397,4 +443,5 @@ if (btnPause) btnPause.addEventListener("click", () => {
 const btnReset = document.getElementById("btnReset");
 if (btnReset) btnReset.addEventListener("click", startMatchSequence);
 
+// Démarrage de la boucle de jeu
 gameLoop();

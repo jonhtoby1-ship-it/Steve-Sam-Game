@@ -19,22 +19,22 @@
       <div id="timer">01:30</div>
       <div id="game-status">PRÊT ?</div>
       <div class="controls-top">
-        <button id="btnPause" class="btn-icon">⏸</button>
-        <button id="btnReset" class="btn-icon">🔄</button>
-        <button id="btnHome" class="btn-icon">🏠</button>
+        <button id="btnPause" class="btn-icon" type="button">⏸</button>
+        <button id="btnReset" class="btn-icon" type="button">🔄</button>
+        <button id="btnHome" class="btn-icon" type="button">🏠</button>
       </div>
     </div>
 
     <!-- TERRAIN DE JEU ET JOYSTICKS (CANVAS) -->
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <canvas id="gameCanvas" width="800" height="500" tabindex="1"></canvas>
 
     <!-- MENU PRINCIPAL -->
     <div id="main-menu" class="overlay">
       <div class="menu-box">
         <h1>⚽ SOCCER 2D</h1>
-        <button id="btnStartGame" class="btn-primary">JOUER</button>
-        <button id="btnOpenSettings" class="btn-secondary">PARAMÈTRES</button>
-        <button id="btnOpenManual" class="btn-secondary">MANUEL & RÈGLES</button>
+        <button id="btnStartGame" class="btn-primary" type="button">JOUER</button>
+        <button id="btnOpenSettings" class="btn-secondary" type="button">PARAMÈTRES</button>
+        <button id="btnOpenManual" class="btn-secondary" type="button">MANUEL & RÈGLES</button>
       </div>
     </div>
 
@@ -56,7 +56,7 @@
           </select>
         </label>
         <br><br>
-        <button id="btnCloseSettings" class="btn-primary">Valider</button>
+        <button id="btnCloseSettings" class="btn-primary" type="button">Valider</button>
       </div>
     </div>
 
@@ -67,20 +67,19 @@
         <div class="manual-content">
           <h3>🎮 Commandes</h3>
           <ul>
-            <li><b>Joysticks virtuels :</b> Bleu à gauche (J1) et Rouge à droite (J2 - Mode 2P). Cliquez/touchez pour diriger.</li>
-            <li><b>Clavier PC :</b> ZQSD / WASD (J1) et Flèches Directionnelles (J2).</li>
+            <li><b>Joueur 1 (Bleu) :</b> Touches <b>Z, Q, S, D</b> (ou W, A, S, D) ou Joystick virtuel gauche.</li>
+            <li><b>Joueur 2 (Rouge) :</b> Touches <b>Flèches directionnelles</b> ou Joystick virtuel droit.</li>
           </ul>
           <h3>📜 Règles</h3>
           <ul>
-            <li>Chaque joueur conserve son camp.</li>
             <li>Marquez plus de buts que votre adversaire avant la fin du chrono !</li>
           </ul>
         </div>
-        <button id="btnCloseManual" class="btn-primary">Fermer</button>
+        <button id="btnCloseManual" class="btn-primary" type="button">Fermer</button>
       </div>
     </div>
   </div>
 
-  <script src="game.js?v=3"></script>
+  <script src="game.js"></script>
 </body>
 </html>

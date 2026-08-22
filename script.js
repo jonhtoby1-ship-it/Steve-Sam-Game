@@ -5,13 +5,11 @@ const score1El = document.getElementById("score1");
 const score2El = document.getElementById("score2");
 const timerEl = document.getElementById("timer");
 const statusEl = document.getElementById("game-status");
-const netStatus = document.getElementById("networkStatus");
 
 // Écrans et Modaux
 const mainMenu = document.getElementById("main-menu");
 const settingsModal = document.getElementById("settings-modal");
 const manualModal = document.getElementById("manual-modal");
-const onlineControls = document.getElementById("online-controls");
 
 const gameModeSelect = document.getElementById("gameModeSelect");
 const gameDurationSelect = document.getElementById("gameDuration");
@@ -21,19 +19,17 @@ let score1 = 0, score2 = 0, round = 1;
 let totalTime = 180, timeLeft = 90;
 let isPaused = false, isGameOver = false;
 let isCountdown = false, countdownValue = 3;
-let timerInterval = null, musicInterval = null, countdownInterval = null;
-let musicEnabled = true;
+let timerInterval = null, countdownInterval = null;
 
-// Entrées Joysticks
+// Entrées Joysticks & Clavier
 const joy1Dir = { x: 0, y: 0 };
 const joy2Dir = { x: 0, y: 0 };
 const keys = {};
 
-// Claviers (support PC pour tests)
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
-// AUDIO
+// SYNTHÉTISEUR SONORE
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, duration, type = "sine") {
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -51,20 +47,38 @@ function playKickSound() { playTone(150, 0.1, "triangle"); }
 function playBeepSound(high = false) { playTone(high ? 800 : 400, 0.2, "sine"); }
 function playGoalSound() { playTone(300, 0.5, "sawtooth"); }
 
-// OBGETS DU JEU
-const p1 = { x: 100, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
-const p2 = { x: 700, y: 250, radius: 18, color: "#ff416c", speed: 5, num: "J2" };
+// JOUEURS ET BALLE (Vitesses égales = 5)
+const p1 = { x: 120, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
+const p2 = { x: 680, y: 250, radius: 18, color: "#ff416c", speed: 5, num: "J2" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
 
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// --- GESTION DES JOYSTICKS ---
+// BRUIT D'IMPRÉCISION PARTAGÉ
+let noiseTimer = 0;
+let p1NoiseX = 0, p1NoiseY = 0;
+let p2NoiseX = 0, p2NoiseY = 0;
+
+function updatePlayerNoise() {
+  noiseTimer++;
+  if (noiseTimer > 15) {
+    noiseTimer = 0;
+    p1NoiseX = (Math.random() - 0.5) * 12;
+    p1NoiseY = (Math.random() - 0.5) * 12;
+    p2NoiseX = (Math.random() - 0.5) * 12;
+    p2NoiseY = (Math.random() - 0.5) * 12;
+  }
+}
+
+// GESTION DES JOYSTICKS
 function setupJoystick(zoneId, stickId, targetDir) {
   const zone = document.getElementById(zoneId);
   const stick = document.getElementById(stickId);
   let touchId = null;
   let baseRect = null;
+
+  if (!zone || !stick) return;
 
   zone.addEventListener("touchstart", (e) => {
     e.preventDefault();
@@ -122,127 +136,58 @@ function setupJoystick(zoneId, stickId, targetDir) {
 setupJoystick("joystick-left-zone", "joystick-left-stick", joy1Dir);
 setupJoystick("joystick-right-zone", "joystick-right-stick", joy2Dir);
 
-// --- MULTIJOUEUR PEERJS CORRIGÉ ---
-let peer = null, conn = null, isHost = true, myPlayerId = 1;
-
-document.getElementById("btnCreateRoom").addEventListener("click", () => {
-  const roomId = Math.floor(1000 + Math.random() * 9000).toString();
-  peer = new Peer(`foot-game-${roomId}`);
-  netStatus.textContent = "Création du salon...";
-  peer.on('open', () => {
-    netStatus.textContent = `🟢 Salon Créé ! CODE : ${roomId}`;
-    isHost = true; myPlayerId = 1;
-  });
-  peer.on('connection', (c) => {
-    conn = c; setupNetworkEvents();
-    netStatus.textContent = `⚡ Joueur 2 Connecté ! Prêt à jouer.`;
-  });
-});
-
-document.getElementById("btnJoinRoom").addEventListener("click", () => {
-  const roomId = document.getElementById("roomInput").value.trim();
-  if (roomId.length !== 4) return alert("Entrez un code à 4 chiffres valide.");
-  peer = new Peer();
-  netStatus.textContent = "Connexion...";
-  peer.on('open', () => {
-    conn = peer.connect(`foot-game-${roomId}`);
-    isHost = false; myPlayerId = 2;
-    setupNetworkEvents();
-  });
-});
-
-function setupNetworkEvents() {
-  conn.on('open', () => {
-    netStatus.textContent = `🟢 Connecté au match !`;
-    if (isHost) {
-      conn.send({ type: 'START_MATCH' });
-      startMatchSequence();
-    }
-  });
-
-  conn.on('data', (data) => {
-    if (data.type === 'START_MATCH' && !isHost) {
-      startMatchSequence();
-    }
-    if (data.type === 'STATE_UPDATE' && !isHost) {
-      p1.x = data.p1.x; p1.y = data.p1.y;
-      p2.x = data.p2.x; p2.y = data.p2.y;
-      ball.x = data.ball.x; ball.y = data.ball.y;
-      score1 = data.score1; score2 = data.score2;
-      score1El.textContent = score1; score2El.textContent = score2;
-      isCountdown = data.isCountdown; countdownValue = data.countdownValue;
-    }
-    if (data.type === 'INPUT_UPDATE' && isHost) {
-      joy2Dir.x = data.joy.x;
-      joy2Dir.y = data.joy.y;
-    }
-  });
-}
-
-function sendNetworkData() {
-  if (!conn || !conn.open) return;
-  if (isHost) {
-    conn.send({
-      type: 'STATE_UPDATE',
-      p1: { x: p1.x, y: p1.y }, p2: { x: p2.x, y: p2.y },
-      ball: { x: ball.x, y: ball.y },
-      score1: score1, score2: score2,
-      isCountdown: isCountdown, countdownValue: countdownValue
-    });
-  } else {
-    conn.send({ type: 'INPUT_UPDATE', joy: joy1Dir });
-  }
-}
-
-// --- LOGIQUE DE L'IA AMÉLIORÉE (ATTAQUE DANS SON CAMP) ---
+// IA HUMAINE
 function updateAI() {
-  p2.speed = 5;
   let targetX, targetY;
-  const targetGoalY = goalY + goalHeight / 2;
 
-  // L'IA attaque activement dès que le ballon entre dans sa zone
-  if (ball.x > canvas.width / 2 && score2 < 3) {
-    targetX = ball.x;
-    targetY = ball.y;
+  if (ball.x >= canvas.width / 2) {
+    targetX = ball.x + p2NoiseX * 2;
+    targetY = ball.y + p2NoiseY * 2;
   } else {
-    targetX = canvas.width - 120;
-    targetY = canvas.height / 2;
+    targetX = canvas.width - 120 + p2NoiseX;
+    targetY = ball.y + p2NoiseY;
   }
 
-  if (p2.x < targetX) p2.x += p2.speed;
-  if (p2.x > targetX) p2.x -= p2.speed;
-  if (p2.y < targetY) p2.y += p2.speed;
-  if (p2.y > targetY) p2.y -= p2.speed;
-
-  // IA reste STRICTEMENT dans son camp
-  p2.x = Math.max(canvas.width / 2 + p2.radius + 5, Math.min(canvas.width - p2.radius, p2.x));
-  p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y));
-
-  // Tirs ajustés
-  let dx = ball.x - p2.x;
-  let dy = ball.y - p2.y;
+  let dx = targetX - p2.x;
+  let dy = targetY - p2.y;
   let dist = Math.hypot(dx, dy);
 
-  if (dist < p2.radius + ball.radius + 4) {
+  if (dist > 3) {
+    let currentSpeed = Math.min(p2.speed, dist * 0.15);
+    p2.x += (dx / dist) * currentSpeed;
+    p2.y += (dy / dist) * currentSpeed;
+  }
+
+  p2.x = Math.max(canvas.width / 2 + p2.radius + 4, Math.min(canvas.width - p2.radius, p2.x));
+  p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y));
+
+  let ballDx = ball.x - p2.x;
+  let ballDy = ball.y - p2.y;
+  let ballDist = Math.hypot(ballDx, ballDy);
+
+  if (ballDist < p2.radius + ball.radius + 3) {
+    const targetGoalY = goalY + goalHeight / 2 + (p2NoiseY * 4);
     let angle = Math.atan2(targetGoalY - ball.y, 0 - ball.x);
-    if (Math.random() < 0.70) angle += (Math.random() - 0.5) * 1.2;
-    ball.vx = Math.cos(angle) * 11;
-    ball.vy = Math.sin(angle) * 11;
+    let kickPower = 8 + (Math.random() - 0.5) * 4;
+    
+    ball.vx = Math.cos(angle) * kickPower;
+    ball.vy = Math.sin(angle) * kickPower;
     playKickSound();
   }
 }
 
-// --- DÉROULEMENT DU MATCH ---
+// LOGIQUE D'UN MATCH
 function startMatchSequence() {
-  mainMenu.classList.add("hidden");
-  settingsModal.classList.add("hidden");
-  manualModal.classList.add("hidden");
+  if (mainMenu) mainMenu.classList.add("hidden");
+  if (settingsModal) settingsModal.classList.add("hidden");
+  if (manualModal) manualModal.classList.add("hidden");
 
-  totalTime = parseInt(gameDurationSelect.value);
+  totalTime = parseInt(gameDurationSelect.value || 180);
   timeLeft = Math.floor(totalTime / 2);
   score1 = 0; score2 = 0; round = 1;
   isGameOver = false; isPaused = false;
-  score1El.textContent = "0"; score2El.textContent = "0";
+  if (score1El) score1El.textContent = "0";
+  if (score2El) score2El.textContent = "0";
 
   resetPositions(1);
   startCountdown(() => { startTimer(); });
@@ -251,7 +196,7 @@ function startMatchSequence() {
 function startCountdown(callback) {
   isCountdown = true;
   countdownValue = 3;
-  statusEl.textContent = "PRÊT ?";
+  if (statusEl) statusEl.textContent = "PRÊT ?";
   playBeepSound(false);
 
   if (countdownInterval) clearInterval(countdownInterval);
@@ -262,11 +207,11 @@ function startCountdown(callback) {
       playBeepSound(false);
     } else if (countdownValue === 0) {
       playBeepSound(true);
-      statusEl.textContent = "GO !";
+      if (statusEl) statusEl.textContent = "GO !";
     } else {
       clearInterval(countdownInterval);
       isCountdown = false;
-      statusEl.textContent = `ROUND ${round}`;
+      if (statusEl) statusEl.textContent = `ROUND ${round}`;
       if (callback) callback();
     }
   }, 1000);
@@ -279,7 +224,7 @@ function startTimer() {
       timeLeft--;
       let mins = Math.floor(timeLeft / 60);
       let secs = timeLeft % 60;
-      timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      if (timerEl) timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
       if (timeLeft <= 0) {
         if (round === 1) startRound2();
         else endGame();
@@ -299,7 +244,7 @@ function endGame() {
   isGameOver = true;
   clearInterval(timerInterval);
   playGoalSound();
-  alert(`FIN DU MATCH !\nScore : J1 ${score1} - ${score2} J2`);
+  alert(`FIN DU MATCH !\nScore Final : J1 ${score1} - ${score2} J2`);
 }
 
 function resetPositions(starter = 1) {
@@ -310,13 +255,15 @@ function resetPositions(starter = 1) {
   ball.y = canvas.height / 2;
 }
 
-// --- BOUCLE PRINCIPALE ---
+// MISE À JOUR CONTINU DU JEU
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
-  // Déplacement J1 (Joystick 1 + Clavier) - Limité à son camp
-  let move1X = joy1Dir.x * p1.speed;
-  let move1Y = joy1Dir.y * p1.speed;
+  updatePlayerNoise();
+
+  let move1X = joy1Dir.x * p1.speed + (joy1Dir.x !== 0 ? p1NoiseX * 0.1 : 0);
+  let move1Y = joy1Dir.y * p1.speed + (joy1Dir.y !== 0 ? p1NoiseY * 0.1 : 0);
+
   if (keys["KeyW"]) move1Y = -p1.speed;
   if (keys["KeyS"]) move1Y = p1.speed;
   if (keys["KeyA"]) move1X = -p1.speed;
@@ -325,11 +272,9 @@ function update() {
   p1.x = Math.max(p1.radius, Math.min(canvas.width / 2 - p1.radius, p1.x + move1X));
   p1.y = Math.max(p1.radius, Math.min(canvas.height - p1.radius, p1.y + move1Y));
 
-  // Déplacement J2 selon le Mode
   if (currentGameMode === "LOCAL_2P") {
-    // Mode 2 joueurs même écran
-    let move2X = joy2Dir.x * p2.speed;
-    let move2Y = joy2Dir.y * p2.speed;
+    let move2X = joy2Dir.x * p2.speed + (joy2Dir.x !== 0 ? p2NoiseX * 0.1 : 0);
+    let move2Y = joy2Dir.y * p2.speed + (joy2Dir.y !== 0 ? p2NoiseY * 0.1 : 0);
     if (keys["ArrowUp"]) move2Y = -p2.speed;
     if (keys["ArrowDown"]) move2Y = p2.speed;
     if (keys["ArrowLeft"]) move2X = -p2.speed;
@@ -337,13 +282,6 @@ function update() {
 
     p2.x = Math.max(canvas.width / 2 + p2.radius, Math.min(canvas.width - p2.radius, p2.x + move2X));
     p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y + move2Y));
-  } else if (currentGameMode === "ONLINE" && conn && conn.open) {
-    if (isHost) {
-      let move2X = joy2Dir.x * p2.speed;
-      let move2Y = joy2Dir.y * p2.speed;
-      p2.x = Math.max(canvas.width / 2 + p2.radius, Math.min(canvas.width - p2.radius, p2.x + move2X));
-      p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y + move2Y));
-    }
   } else if (currentGameMode === "AI") {
     updateAI();
   }
@@ -354,28 +292,21 @@ function update() {
   ball.x += ball.vx; ball.y += ball.vy;
   ball.vx *= ball.friction; ball.vy *= ball.friction;
 
-  // Rebond haut/bas
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) ball.vy *= -1;
 
-  // Rebond poteaux
   if (ball.y < goalY || ball.y > goalY + goalHeight) {
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.vx *= -1;
   }
 
-  // Buts
   if (ball.x < 0) {
-    if (score2 < 3 || currentGameMode !== "AI") {
-      score2++; score2El.textContent = score2;
-      playGoalSound(); resetPositions(2); startCountdown();
-    } else {
-      ball.vx = 10; ball.x = 15;
-    }
+    score2++; 
+    if (score2El) score2El.textContent = score2;
+    playGoalSound(); resetPositions(2); startCountdown();
   } else if (ball.x > canvas.width) {
-    score1++; score1El.textContent = score1;
+    score1++; 
+    if (score1El) score1El.textContent = score1;
     playGoalSound(); resetPositions(1); startCountdown();
   }
-
-  if (currentGameMode === "ONLINE") sendNetworkData();
 }
 
 function pushBall(p) {
@@ -391,20 +322,18 @@ function pushBall(p) {
   }
 }
 
+// DESSIN DU CANVAS
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Terrain
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
   ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2); ctx.stroke();
 
-  // Buts
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, goalY, 8, goalHeight);
   ctx.fillRect(canvas.width - 8, goalY, 8, goalHeight);
 
-  // Joueurs
   [p1, p2].forEach(p => {
     ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fillStyle = p.color; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.stroke();
@@ -412,11 +341,9 @@ function draw() {
     ctx.fillText(p.num, p.x - 6, p.y + 4);
   });
 
-  // Balle
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
-  // Compte à rebours visuel
   if (isCountdown) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -431,37 +358,38 @@ function draw() {
 
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
-// --- ÉVÉNEMENTS INTERFACE ---
-document.getElementById("btnStartGame").addEventListener("click", () => {
-  if (currentGameMode === "ONLINE" && (!conn || !conn.open)) {
-    alert("Veuillez d'abord vous connecter à un autre joueur dans les paramètres !");
-    return;
-  }
-  startMatchSequence();
-});
+// ÉVÉNEMENTS
+const btnStart = document.getElementById("btnStartGame");
+if (btnStart) btnStart.addEventListener("click", startMatchSequence);
 
-document.getElementById("btnOpenSettings").addEventListener("click", () => settingsModal.classList.remove("hidden"));
-document.getElementById("btnCloseSettings").addEventListener("click", () => settingsModal.classList.add("hidden"));
-document.getElementById("btnOpenManual").addEventListener("click", () => manualModal.classList.remove("hidden"));
-document.getElementById("btnCloseManual").addEventListener("click", () => manualModal.classList.add("hidden"));
+const btnOpenSet = document.getElementById("btnOpenSettings");
+if (btnOpenSet) btnOpenSet.addEventListener("click", () => settingsModal.classList.remove("hidden"));
 
-document.getElementById("btnHome").addEventListener("click", () => {
+const btnCloseSet = document.getElementById("btnCloseSettings");
+if (btnCloseSet) btnCloseSet.addEventListener("click", () => settingsModal.classList.add("hidden"));
+
+const btnOpenMan = document.getElementById("btnOpenManual");
+if (btnOpenMan) btnOpenMan.addEventListener("click", () => manualModal.classList.remove("hidden"));
+
+const btnCloseMan = document.getElementById("btnCloseManual");
+if (btnCloseMan) btnCloseMan.addEventListener("click", () => manualModal.classList.add("hidden"));
+
+const btnHome = document.getElementById("btnHome");
+if (btnHome) btnHome.addEventListener("click", () => {
   clearInterval(timerInterval);
   mainMenu.classList.remove("hidden");
 });
 
-gameModeSelect.addEventListener("change", (e) => {
-  currentGameMode = e.target.value;
-  if (currentGameMode === "ONLINE") onlineControls.classList.remove("hidden");
-  else onlineControls.classList.add("hidden");
-});
+if (gameModeSelect) gameModeSelect.addEventListener("change", (e) => currentGameMode = e.target.value);
 
-document.getElementById("btnPause").addEventListener("click", () => {
+const btnPause = document.getElementById("btnPause");
+if (btnPause) btnPause.addEventListener("click", () => {
   if (isGameOver || isCountdown) return;
   isPaused = !isPaused;
-  statusEl.textContent = isPaused ? "PAUSE" : `ROUND ${round}`;
+  if (statusEl) statusEl.textContent = isPaused ? "PAUSE" : `ROUND ${round}`;
 });
 
-document.getElementById("btnReset").addEventListener("click", () => startMatchSequence());
+const btnReset = document.getElementById("btnReset");
+if (btnReset) btnReset.addEventListener("click", startMatchSequence);
 
 gameLoop();

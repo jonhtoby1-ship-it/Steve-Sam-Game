@@ -21,15 +21,12 @@ let isPaused = false, isGameOver = false;
 let isCountdown = false, countdownValue = 3;
 let timerInterval = null, countdownInterval = null;
 
-// Entrées Joysticks & Clavier
-const joy1Dir = { x: 0, y: 0 };
-const joy2Dir = { x: 0, y: 0 };
+// Clavier
 const keys = {};
-
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
-// SYNTHÉTISEUR SONORE (Web Audio API)
+// SYNTHÉTISEUR SONORE
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, duration, type = "sine") {
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -55,11 +52,71 @@ const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, frict
 const goalHeight = 200;
 const goalY = (canvas.height - goalHeight) / 2;
 
-// BRUIT D'IMPRÉCISION PARTAGÉ
-let noiseTimer = 0;
-let p1NoiseX = 0, p1NoiseY = 0;
-let p2NoiseX = 0, p2NoiseY = 0;
+// JOYSTICKS DESSINÉS DANS LE CANVAS
+const joy1 = { baseX: 80, baseY: 420, stickX: 80, stickY: 420, baseR: 45, stickR: 20, dirX: 0, dirY: 0, active: false, touchId: null };
+const joy2 = { baseX: 720, baseY: 420, stickX: 720, stickY: 420, baseR: 45, stickR: 20, dirX: 0, dirY: 0, active: false, touchId: null };
 
+function handlePointer(clientX, clientY, isDown, touchId = null) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (clientX - rect.left) * scaleX;
+  const y = (clientY - rect.top) * scaleY;
+
+  [joy1, joy2].forEach((j, idx) => {
+    // Si c'est le mode IA, désactiver le Joystick 2
+    if (idx === 1 && currentGameMode === "AI") return;
+
+    if (isDown) {
+      const dist = Math.hypot(x - j.baseX, y - j.baseY);
+      if (dist < j.baseR + 30 && (!j.active || j.touchId === touchId)) {
+        j.active = true;
+        j.touchId = touchId;
+        let dx = x - j.baseX;
+        let dy = y - j.baseY;
+        const maxDist = j.baseR - 10;
+        const d = Math.hypot(dx, dy);
+        if (d > maxDist) {
+          dx = (dx / d) * maxDist;
+          dy = (dy / d) * maxDist;
+        }
+        j.stickX = j.baseX + dx;
+        j.stickY = j.baseY + dy;
+        j.dirX = dx / maxDist;
+        j.dirY = dy / maxDist;
+      }
+    } else {
+      if (j.touchId === touchId || touchId === null) {
+        j.active = false;
+        j.stickX = j.baseX;
+        j.stickY = j.baseY;
+        j.dirX = 0;
+        j.dirY = 0;
+        j.touchId = null;
+      }
+    }
+  });
+}
+
+// Événements Souris & Tactiles directs sur le Canvas
+canvas.addEventListener("mousedown", (e) => handlePointer(e.clientX, e.clientY, true));
+window.addEventListener("mousemove", (e) => { if (joy1.active || joy2.active) handlePointer(e.clientX, e.clientY, true); });
+window.addEventListener("mouseup", () => handlePointer(0, 0, false));
+
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  for (let t of e.changedTouches) handlePointer(t.clientX, t.clientY, true, t.identifier);
+});
+canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  for (let t of e.changedTouches) handlePointer(t.clientX, t.clientY, true, t.identifier);
+});
+canvas.addEventListener("touchend", (e) => {
+  for (let t of e.changedTouches) handlePointer(0, 0, false, t.identifier);
+});
+
+// BRUIT D'IMPRÉCISION PARTAGÉ
+let noiseTimer = 0, p1NoiseX = 0, p1NoiseY = 0, p2NoiseX = 0, p2NoiseY = 0;
 function updatePlayerNoise() {
   noiseTimer++;
   if (noiseTimer > 15) {
@@ -71,78 +128,9 @@ function updatePlayerNoise() {
   }
 }
 
-// GESTION DES JOYSTICKS (Support Tactile + Souris pour Tests)
-function setupJoystick(zoneId, stickId, targetDir) {
-  const zone = document.getElementById(zoneId);
-  const stick = document.getElementById(stickId);
-  let active = false;
-
-  if (!zone || !stick) return;
-
-  const updatePosition = (clientX, clientY) => {
-    const baseRect = stick.parentElement.getBoundingClientRect();
-    const centerX = baseRect.left + baseRect.width / 2;
-    const centerY = baseRect.top + baseRect.height / 2;
-
-    let dx = clientX - centerX;
-    let dy = clientY - centerY;
-    const maxDist = 35;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist > maxDist) {
-      dx = (dx / dist) * maxDist;
-      dy = (dy / dist) * maxDist;
-    }
-
-    stick.style.transform = `translate(${dx}px, ${dy}px)`;
-    targetDir.x = dx / maxDist;
-    targetDir.y = dy / maxDist;
-  };
-
-  const resetStick = () => {
-    active = false;
-    stick.style.transform = `translate(0px, 0px)`;
-    targetDir.x = 0;
-    targetDir.y = 0;
-  };
-
-  // Tactile
-  zone.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    active = true;
-    updatePosition(e.touches[0].clientX, e.touches[0].clientY);
-  });
-
-  zone.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    if (active) updatePosition(e.touches[0].clientX, e.touches[0].clientY);
-  });
-
-  zone.addEventListener("touchend", resetStick);
-  zone.addEventListener("touchcancel", resetStick);
-
-  // Souris (Pour tester sur PC sans écran tactile)
-  zone.addEventListener("mousedown", (e) => {
-    active = true;
-    updatePosition(e.clientX, e.clientY);
-  });
-
-  window.addEventListener("mousemove", (e) => {
-    if (active) updatePosition(e.clientX, e.clientY);
-  });
-
-  window.addEventListener("mouseup", () => {
-    if (active) resetStick();
-  });
-}
-
-setupJoystick("joystick-left-zone", "joystick-left-stick", joy1Dir);
-setupJoystick("joystick-right-zone", "joystick-right-stick", joy2Dir);
-
 // IA HUMAINE
 function updateAI() {
   let targetX, targetY;
-
   if (ball.x >= canvas.width / 2) {
     targetX = ball.x + p2NoiseX * 2;
     targetY = ball.y + p2NoiseY * 2;
@@ -151,10 +139,7 @@ function updateAI() {
     targetY = ball.y + p2NoiseY;
   }
 
-  let dx = targetX - p2.x;
-  let dy = targetY - p2.y;
-  let dist = Math.hypot(dx, dy);
-
+  let dx = targetX - p2.x, dy = targetY - p2.y, dist = Math.hypot(dx, dy);
   if (dist > 3) {
     let currentSpeed = Math.min(p2.speed, dist * 0.15);
     p2.x += (dx / dist) * currentSpeed;
@@ -164,22 +149,18 @@ function updateAI() {
   p2.x = Math.max(canvas.width / 2 + p2.radius + 4, Math.min(canvas.width - p2.radius, p2.x));
   p2.y = Math.max(p2.radius, Math.min(canvas.height - p2.radius, p2.y));
 
-  let ballDx = ball.x - p2.x;
-  let ballDy = ball.y - p2.y;
-  let ballDist = Math.hypot(ballDx, ballDy);
-
+  let ballDist = Math.hypot(ball.x - p2.x, ball.y - p2.y);
   if (ballDist < p2.radius + ball.radius + 3) {
     const targetGoalY = goalY + goalHeight / 2 + (p2NoiseY * 4);
     let angle = Math.atan2(targetGoalY - ball.y, 0 - ball.x);
     let kickPower = 8 + (Math.random() - 0.5) * 4;
-    
     ball.vx = Math.cos(angle) * kickPower;
     ball.vy = Math.sin(angle) * kickPower;
     playKickSound();
   }
 }
 
-// LOGIQUE D'UN MATCH
+// MATCH MANAGEMENT
 function startMatchSequence() {
   if (mainMenu) mainMenu.classList.add("hidden");
   if (settingsModal) settingsModal.classList.add("hidden");
@@ -203,7 +184,6 @@ function startCountdown(callback) {
   playBeepSound(false);
 
   if (countdownInterval) clearInterval(countdownInterval);
-
   countdownInterval = setInterval(() => {
     countdownValue--;
     if (countdownValue > 0) {
@@ -258,15 +238,15 @@ function resetPositions(starter = 1) {
   ball.y = canvas.height / 2;
 }
 
-// UPDATE
+// UPDATE LOGIC
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
   updatePlayerNoise();
 
-  let move1X = joy1Dir.x * p1.speed + (joy1Dir.x !== 0 ? p1NoiseX * 0.1 : 0);
-  let move1Y = joy1Dir.y * p1.speed + (joy1Dir.y !== 0 ? p1NoiseY * 0.1 : 0);
-
+  // Déplacement J1
+  let move1X = joy1.dirX * p1.speed;
+  let move1Y = joy1.dirY * p1.speed;
   if (keys["KeyW"]) move1Y = -p1.speed;
   if (keys["KeyS"]) move1Y = p1.speed;
   if (keys["KeyA"]) move1X = -p1.speed;
@@ -275,9 +255,10 @@ function update() {
   p1.x = Math.max(p1.radius, Math.min(canvas.width / 2 - p1.radius, p1.x + move1X));
   p1.y = Math.max(p1.radius, Math.min(canvas.height - p1.radius, p1.y + move1Y));
 
+  // Déplacement J2 / IA
   if (currentGameMode === "LOCAL_2P") {
-    let move2X = joy2Dir.x * p2.speed + (joy2Dir.x !== 0 ? p2NoiseX * 0.1 : 0);
-    let move2Y = joy2Dir.y * p2.speed + (joy2Dir.y !== 0 ? p2NoiseY * 0.1 : 0);
+    let move2X = joy2.dirX * p2.speed;
+    let move2Y = joy2.dirY * p2.speed;
     if (keys["ArrowUp"]) move2Y = -p2.speed;
     if (keys["ArrowDown"]) move2Y = p2.speed;
     if (keys["ArrowLeft"]) move2X = -p2.speed;
@@ -325,18 +306,21 @@ function pushBall(p) {
   }
 }
 
-// RENDU
+// DESSIN DANS LE CANVAS
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Terrain
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
   ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2); ctx.stroke();
 
+  // Buts
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, goalY, 8, goalHeight);
   ctx.fillRect(canvas.width - 8, goalY, 8, goalHeight);
 
+  // Joueurs
   [p1, p2].forEach(p => {
     ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fillStyle = p.color; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.stroke();
@@ -344,16 +328,34 @@ function draw() {
     ctx.fillText(p.num, p.x - 6, p.y + 4);
   });
 
+  // Ballon
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fillStyle = ball.color; ctx.fill(); ctx.strokeStyle = "#000"; ctx.stroke();
 
+  // DESSIN DES JOYSTICKS DIRECTEMENT EN CANVAS
+  const drawJoystick = (j, color) => {
+    // Base
+    ctx.beginPath(); ctx.arc(j.baseX, j.baseY, j.baseR, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)"; ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"; ctx.lineWidth = 3; ctx.stroke();
+    // Stick
+    ctx.beginPath(); ctx.arc(j.stickX, j.stickY, j.stickR, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
+  };
+
+  drawJoystick(joy1, "#00d2ff");
+  if (currentGameMode === "LOCAL_2P") {
+    drawJoystick(joy2, "#ff416c");
+  }
+
+  // Countdown Overlay
   if (isCountdown) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.font = "bold 80px system-ui";
     ctx.fillStyle = "#ffeb3b";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(countdownValue > 0 ? countdownValue : "GO !", canvas.width / 2, canvas.height / 2);
     ctx.textAlign = "left";
   }
@@ -361,7 +363,7 @@ function draw() {
 
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
-// ÉVÉNEMENTS
+// ÉVÉNEMENTS BOUTONS
 const btnStart = document.getElementById("btnStartGame");
 if (btnStart) btnStart.addEventListener("click", startMatchSequence);
 

@@ -1,3 +1,4 @@
+alert("LE SCRIPT EST BIEN CHARGÉ !");
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 

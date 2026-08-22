@@ -8,9 +8,8 @@
 </head>
 <body>
 
-  <!-- CONTAINER DU JEU -->
   <div id="game-container">
-    <!-- BARRE DE SCORE ET CONTROLES HAUTS -->
+    <!-- BARRE D'INFORMATION -->
     <div id="ui-bar">
       <div class="score-box">
         <span id="p1-label">J1</span>
@@ -26,76 +25,59 @@
       </div>
     </div>
 
-    <!-- TERRAIN DE JEU -->
+    <!-- TERRAIN DE JEU ET JOYSTICKS (DESSINÉS EN CANVAS) -->
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <!-- CONTROLES TACTILES (JOYSTICKS VISIBLES) -->
-    <div id="touch-controls">
-      <div id="joystick-left-zone" class="joystick-zone">
-        <div id="joystick-left-base" class="joystick-base">
-          <div id="joystick-left-stick" class="joystick-stick"></div>
+    <!-- MENU PRINCIPAL -->
+    <div id="main-menu" class="overlay">
+      <div class="menu-box">
+        <h1>⚽ SOCCER 2D</h1>
+        <button id="btnStartGame" class="btn-primary">JOUER</button>
+        <button id="btnOpenSettings" class="btn-secondary">PARAMÈTRES</button>
+        <button id="btnOpenManual" class="btn-secondary">MANUEL & RÈGLES</button>
+      </div>
+    </div>
+
+    <!-- PARAMÈTRES -->
+    <div id="settings-modal" class="overlay hidden">
+      <div class="menu-box">
+        <h2>⚙️ Paramètres</h2>
+        <label>Mode de jeu :
+          <select id="gameModeSelect">
+            <option value="AI">1 Joueur vs IA</option>
+            <option value="LOCAL_2P">2 Joueurs (Même Écran)</option>
+          </select>
+        </label>
+        <br><br>
+        <label>Durée du Match :
+          <select id="gameDuration">
+            <option value="180" selected>3 Minutes (2x 1min30)</option>
+            <option value="300">5 Minutes (2x 2min30)</option>
+          </select>
+        </label>
+        <br><br>
+        <button id="btnCloseSettings" class="btn-primary">Valider</button>
+      </div>
+    </div>
+
+    <!-- MANUEL -->
+    <div id="manual-modal" class="overlay hidden">
+      <div class="menu-box scrollable">
+        <h2>📖 Manuel d'Utilisation</h2>
+        <div class="manual-content">
+          <h3>🎮 Commandes</h3>
+          <ul>
+            <li><b>Joysticks virtuels :</b> Visibles à l'écran en bas à gauche (J1) et bas à droite (J2). Cliquez/touchez pour diriger.</li>
+            <li><b>Clavier PC :</b> ZQSD (J1) et Flèches Directionnelles (J2).</li>
+          </ul>
+          <h3>📜 Règles</h3>
+          <ul>
+            <li>Chaque joueur conserve son camp.</li>
+            <li>Marquez plus de buts que votre adversaire avant la fin du temps !</li>
+          </ul>
         </div>
+        <button id="btnCloseManual" class="btn-primary">Fermer</button>
       </div>
-      
-      <div id="joystick-right-zone" class="joystick-zone">
-        <div id="joystick-right-base" class="joystick-base">
-          <div id="joystick-right-stick" class="joystick-stick"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MENU PRINCIPAL -->
-  <div id="main-menu" class="overlay">
-    <div class="menu-box">
-      <h1>⚽ SOCCER 2D</h1>
-      <button id="btnStartGame" class="btn-primary">JOUER</button>
-      <button id="btnOpenSettings" class="btn-secondary">PARAMÈTRES</button>
-      <button id="btnOpenManual" class="btn-secondary">MANUEL & RÈGLES</button>
-    </div>
-  </div>
-
-  <!-- PANNEAU PARAMÈTRES -->
-  <div id="settings-modal" class="overlay hidden">
-    <div class="menu-box">
-      <h2>⚙️ Paramètres</h2>
-      <label>Mode de jeu :
-        <select id="gameModeSelect">
-          <option value="AI">1 Joueur vs IA</option>
-          <option value="LOCAL_2P">2 Joueurs (Même Écran)</option>
-        </select>
-      </label>
-      <br><br>
-      <label>Durée du Match :
-        <select id="gameDuration">
-          <option value="180" selected>3 Minutes (2x 1min30)</option>
-          <option value="300">5 Minutes (2x 2min30)</option>
-        </select>
-      </label>
-      <br><br>
-      <button id="btnCloseSettings" class="btn-primary">Valider</button>
-    </div>
-  </div>
-
-  <!-- PANNEAU MANUEL -->
-  <div id="manual-modal" class="overlay hidden">
-    <div class="menu-box scrollable">
-      <h2>📖 Manuel d'Utilisation</h2>
-      <div class="manual-content">
-        <h3>🎮 Modes de Jeu</h3>
-        <ul>
-          <li><b>1 Joueur vs IA :</b> Défiez l'IA. Elle défend et attaque activement dans son camp.</li>
-          <li><b>2 Joueurs :</b> Jouez à deux via les joysticks virtuels sur l'écran.</li>
-        </ul>
-
-        <h3>📜 Règles du Jeu</h3>
-        <ul>
-          <li><b>Zone :</b> Chaque joueur reste strictement dans sa moitié de terrain.</li>
-          <li><b>Déplacement :</b> Orientez le joueur avec le joystick tactile.</li>
-          <li><b>Match :</b> Le match se joue en 2 mi-temps. Le plus haut score l'emporte !</li>
-        </ul>
-      </div>
-      <button id="btnCloseManual" class="btn-primary">Fermer</button>
     </div>
   </div>
 

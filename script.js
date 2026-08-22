@@ -29,7 +29,7 @@ const keys = {};
 window.addEventListener("keydown", (e) => keys[e.code] = true);
 window.addEventListener("keyup", (e) => keys[e.code] = false);
 
-// SYNTHÉTISEUR SONORE
+// SYNTHÉTISEUR SONORE (Web Audio API)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, duration, type = "sine") {
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -47,7 +47,7 @@ function playKickSound() { playTone(150, 0.1, "triangle"); }
 function playBeepSound(high = false) { playTone(high ? 800 : 400, 0.2, "sine"); }
 function playGoalSound() { playTone(300, 0.5, "sawtooth"); }
 
-// JOUEURS ET BALLE (Vitesses égales = 5)
+// JOUEURS ET BALLE
 const p1 = { x: 120, y: 250, radius: 18, color: "#00d2ff", speed: 5, num: "J1" };
 const p2 = { x: 680, y: 250, radius: 18, color: "#ff416c", speed: 5, num: "J2" };
 const ball = { x: 400, y: 250, radius: 10, color: "#ffffff", vx: 0, vy: 0, friction: 0.98 };
@@ -71,55 +71,22 @@ function updatePlayerNoise() {
   }
 }
 
-// GESTION DES JOYSTICKS
+// GESTION DES JOYSTICKS (Support Tactile + Souris pour Tests)
 function setupJoystick(zoneId, stickId, targetDir) {
   const zone = document.getElementById(zoneId);
   const stick = document.getElementById(stickId);
-  let touchId = null;
-  let baseRect = null;
+  let active = false;
 
   if (!zone || !stick) return;
 
-  zone.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    if (touchId === null) {
-      const touch = e.changedTouches[0];
-      touchId = touch.identifier;
-      baseRect = zone.getBoundingClientRect();
-      updateStick(touch);
-    }
-  });
-
-  zone.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === touchId) {
-        updateStick(e.changedTouches[i]);
-        break;
-      }
-    }
-  });
-
-  const resetStick = (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === touchId) {
-        touchId = null;
-        stick.style.transform = `translate(0px, 0px)`;
-        targetDir.x = 0; targetDir.y = 0;
-        break;
-      }
-    }
-  };
-
-  zone.addEventListener("touchend", resetStick);
-  zone.addEventListener("touchcancel", resetStick);
-
-  function updateStick(touch) {
+  const updatePosition = (clientX, clientY) => {
+    const baseRect = stick.parentElement.getBoundingClientRect();
     const centerX = baseRect.left + baseRect.width / 2;
     const centerY = baseRect.top + baseRect.height / 2;
-    let dx = touch.clientX - centerX;
-    let dy = touch.clientY - centerY;
-    const maxDist = 40;
+
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+    const maxDist = 35;
     const dist = Math.hypot(dx, dy);
 
     if (dist > maxDist) {
@@ -130,7 +97,43 @@ function setupJoystick(zoneId, stickId, targetDir) {
     stick.style.transform = `translate(${dx}px, ${dy}px)`;
     targetDir.x = dx / maxDist;
     targetDir.y = dy / maxDist;
-  }
+  };
+
+  const resetStick = () => {
+    active = false;
+    stick.style.transform = `translate(0px, 0px)`;
+    targetDir.x = 0;
+    targetDir.y = 0;
+  };
+
+  // Tactile
+  zone.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    active = true;
+    updatePosition(e.touches[0].clientX, e.touches[0].clientY);
+  });
+
+  zone.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (active) updatePosition(e.touches[0].clientX, e.touches[0].clientY);
+  });
+
+  zone.addEventListener("touchend", resetStick);
+  zone.addEventListener("touchcancel", resetStick);
+
+  // Souris (Pour tester sur PC sans écran tactile)
+  zone.addEventListener("mousedown", (e) => {
+    active = true;
+    updatePosition(e.clientX, e.clientY);
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (active) updatePosition(e.clientX, e.clientY);
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (active) resetStick();
+  });
 }
 
 setupJoystick("joystick-left-zone", "joystick-left-stick", joy1Dir);
@@ -255,7 +258,7 @@ function resetPositions(starter = 1) {
   ball.y = canvas.height / 2;
 }
 
-// MISE À JOUR CONTINU DU JEU
+// UPDATE
 function update() {
   if (isPaused || isGameOver || isCountdown) return;
 
@@ -322,7 +325,7 @@ function pushBall(p) {
   }
 }
 
-// DESSIN DU CANVAS
+// RENDU
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 

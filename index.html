@@ -2,84 +2,124 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Soccer 2D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Jeu de Football 2D</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
-  <div id="game-container">
-    <!-- BARRE D'INFORMATION -->
-    <div id="ui-bar">
-      <div class="score-box">
-        <span id="p1-label">J1</span>
-        <span id="score1">0</span> - <span id="score2">0</span>
-        <span id="p2-label">J2</span>
-      </div>
-      <div id="timer">01:30</div>
-      <div id="game-status">PRÊT ?</div>
-      <div class="controls-top">
-        <button id="btnPause" class="btn-icon" type="button">⏸</button>
-        <button id="btnReset" class="btn-icon" type="button">🔄</button>
-        <button id="btnHome" class="btn-icon" type="button">🏠</button>
-      </div>
-    </div>
-
-    <!-- TERRAIN DE JEU ET JOYSTICKS (CANVAS) -->
-    <canvas id="gameCanvas" width="800" height="500" tabindex="1"></canvas>
-
-    <!-- MENU PRINCIPAL -->
-    <div id="main-menu" class="overlay">
-      <div class="menu-box">
-        <h1>⚽ SOCCER 2D</h1>
-        <button id="btnStartGame" class="btn-primary" type="button">JOUER</button>
-        <button id="btnOpenSettings" class="btn-secondary" type="button">PARAMÈTRES</button>
-        <button id="btnOpenManual" class="btn-secondary" type="button">MANUEL & RÈGLES</button>
-      </div>
-    </div>
-
-    <!-- PARAMÈTRES -->
-    <div id="settings-modal" class="overlay hidden">
-      <div class="menu-box">
-        <h2>⚙️ Paramètres</h2>
-        <label>Mode de jeu :
-          <select id="gameModeSelect">
-            <option value="AI">1 Joueur vs IA</option>
-            <option value="LOCAL_2P">2 Joueurs (Même Écran)</option>
-          </select>
-        </label>
-        <br><br>
-        <label>Durée du Match :
-          <select id="gameDuration">
-            <option value="180" selected>3 Minutes (2x 1min30)</option>
-            <option value="300">5 Minutes (2x 2min30)</option>
-          </select>
-        </label>
-        <br><br>
-        <button id="btnCloseSettings" class="btn-primary" type="button">Valider</button>
-      </div>
-    </div>
-
-    <!-- MANUEL -->
-    <div id="manual-modal" class="overlay hidden">
-      <div class="menu-box scrollable">
-        <h2>📖 Manuel d'Utilisation</h2>
-        <div class="manual-content">
-          <h3>🎮 Commandes</h3>
-          <ul>
-            <li><b>Joueur 1 (Bleu) :</b> Touches <b>Z, Q, S, D</b> (ou W, A, S, D) ou Joystick virtuel gauche.</li>
-            <li><b>Joueur 2 (Rouge) :</b> Touches <b>Flèches directionnelles</b> ou Joystick virtuel droit.</li>
-          </ul>
-          <h3>📜 Règles</h3>
-          <ul>
-            <li>Marquez plus de buts que votre adversaire avant la fin du chrono !</li>
-          </ul>
-        </div>
-        <button id="btnCloseManual" class="btn-primary" type="button">Fermer</button>
+  <!-- ÉCRAN D'ACCUEIL / MENU PRINCIPAL -->
+  <div id="main-menu" class="overlay">
+    <div class="menu-box">
+      <h1>⚽ FOOTBALL 2D</h1>
+      
+      <div class="menu-actions">
+        <button id="btnStartGame" class="btn-primary">▶ Jouer</button>
+        <button id="btnOpenSettings" class="btn-secondary">⚙️ Paramètres & Modes</button>
+        <button id="btnOpenManual" class="btn-secondary">📖 Manuel & Règles</button>
       </div>
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <!-- PANNEAU PARAMÈTRES & MULTIJOUEUR -->
+  <div id="settings-modal" class="overlay hidden">
+    <div class="menu-box">
+      <h2>⚙️ Paramètres & Configuration</h2>
+      
+      <div class="setting-item">
+        <label>Mode de Jeu :</label>
+        <select id="gameModeSelect">
+          <option value="AI">1 Joueur vs IA</option>
+          <option value="LOCAL_2P">2 Joueurs (Même écran)</option>
+          <option value="ONLINE">Multijoueur en Ligne</option>
+        </select>
+      </div>
+
+      <div class="setting-item">
+        <label>Durée du Match :</label>
+        <select id="gameDuration">
+          <option value="60">1 Minute</option>
+          <option value="180" selected>3 Minutes</option>
+          <option value="300">5 Minutes</option>
+        </select>
+      </div>
+
+      <!-- Section Multijoueur en ligne -->
+      <div id="online-controls" class="hidden border-box">
+        <h3>🌐 Multijoueur En Ligne</h3>
+        <button id="btnCreateRoom">Créer un Salon</button>
+        <div class="join-row">
+          <input type="text" id="roomInput" placeholder="Code à 4 chiffres" maxlength="4">
+          <button id="btnJoinRoom">Rejoindre</button>
+        </div>
+        <p id="networkStatus">Statut : Non connecté</p>
+      </div>
+
+      <button id="btnCloseSettings" class="btn-primary">Valider</button>
+    </div>
+  </div>
+
+  <!-- PANNEAU MANUEL & RÈGLES -->
+  <div id="manual-modal" class="overlay hidden">
+    <div class="menu-box scrollable">
+      <h2>📖 Manuel d'Utilisation</h2>
+      
+      <div class="manual-content">
+        <h3>🎮 Modes de Jeu</h3>
+        <ul>
+          <li><b>1 Joueur vs IA :</b> Défiez une intelligence artificielle réactive. Chacun reste strictement dans son camp.</li>
+          <li><b>2 Joueurs (Même écran) :</b> Le joueur 1 contrôle avec ZQSD ou le joystick gauche, le joueur 2 avec les flèches ou le joystick droit.</li>
+          <li><b>Multijoueur en Ligne :</b> Créez un salon ou rejoignez un ami via un code à 4 chiffres.</li>
+        </ul>
+
+        <h3>📜 Règles du Jeu</h3>
+        <ul>
+          <li><b>Délimitation :</b> Chaque joueur est confiné dans sa moitié de terrain.</li>
+          <li><b>Contrôle & Tir :</b> Avancez vers le ballon pour le pousser. La puissance du tir dépend de la vitesse de votre joueur lors du contact.</li>
+          <li><b>Déroulement :</b> Marquez le plus de buts possible avant l'expiration du chrono.</li>
+        </ul>
+      </div>
+
+      <button id="btnCloseManual" class="btn-primary">Fermer</button>
+    </div>
+  </div>
+
+  <!-- INTERFACE DE JEU -->
+  <div id="game-container">
+    <div id="hud">
+      <div class="score-board">
+        <span id="score1" class="score p1-color">0</span>
+        <span class="vs">-</span>
+        <span id="score2" class="score p2-color">0</span>
+      </div>
+      <div id="timer">01:30</div>
+      <div id="game-status">PRET ?</div>
+      <div class="hud-buttons">
+        <button id="btnPause">⏸️</button>
+        <button id="btnReset">🔄</button>
+        <button id="btnHome">🏠</button>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <!-- CONTROLES TACTILES JOYSTICKS -->
+    <div id="controls-container">
+      <div id="joystick-left-zone" class="joystick-zone">
+        <div id="joystick-left-base" class="joy-base">
+          <div id="joystick-left-stick" class="joy-stick"></div>
+        </div>
+      </div>
+
+      <div id="joystick-right-zone" class="joystick-zone">
+        <div id="joystick-right-base" class="joy-base p2-base">
+          <div id="joystick-right-stick" class="joy-stick"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>

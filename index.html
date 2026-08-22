@@ -29,7 +29,7 @@
     <!-- TERRAIN DE JEU -->
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <!-- JOYSTICKS TACTILES -->
+    <!-- CONTROLES TACTILES (JOYSTICKS VISIBLES) -->
     <div id="touch-controls">
       <div id="joystick-left-zone" class="joystick-zone">
         <div id="joystick-left-base" class="joystick-base">
@@ -77,7 +77,7 @@
     </div>
   </div>
 
-  <!-- PANNEAU MANUEL (Public) -->
+  <!-- PANNEAU MANUEL -->
   <div id="manual-modal" class="overlay hidden">
     <div class="menu-box scrollable">
       <h2>📖 Manuel d'Utilisation</h2>
@@ -85,14 +85,14 @@
         <h3>🎮 Modes de Jeu</h3>
         <ul>
           <li><b>1 Joueur vs IA :</b> Défiez l'IA. Elle défend et attaque activement dans son camp.</li>
-          <li><b>2 Joueurs :</b> Jouez à deux sur le même écran via les joysticks.</li>
+          <li><b>2 Joueurs :</b> Jouez à deux via les joysticks virtuels sur l'écran.</li>
         </ul>
 
         <h3>📜 Règles du Jeu</h3>
         <ul>
           <li><b>Zone :</b> Chaque joueur reste strictement dans sa moitié de terrain.</li>
           <li><b>Déplacement :</b> Orientez le joueur avec le joystick tactile.</li>
-          <li><b>Match :</b> Le match se joue en 2 mi-temps. Le plus haut score gagne !</li>
+          <li><b>Match :</b> Le match se joue en 2 mi-temps. Le plus haut score l'emporte !</li>
         </ul>
       </div>
       <button id="btnCloseManual" class="btn-primary">Fermer</button>
